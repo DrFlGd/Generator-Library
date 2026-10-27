@@ -48,6 +48,7 @@ test('installs a release zip as an exe, records it, finds updates and uninstalls
   assert.equal(record.exec, 'WebMirror/WebMirror.exe');
   assert.ok(phases.includes('download') && phases.includes('done'));
   assert.equal(await fs.readFile(path.join(record.dir, 'WebMirror', 'WebMirror.exe'), 'utf8'), 'MZ');
+  assert.ok(!path.relative(library.dataDir, record.dir).includes(':'), 'install folder is a valid Windows path');
   assert.ok(library.getInstalled('wm', dist.key));
   assert.equal((await fs.readdir(library.downloadsDir)).length, 0, 'download cleaned up');
 

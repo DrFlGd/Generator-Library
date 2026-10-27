@@ -50,8 +50,10 @@ export class Library {
     await fs.rename(tmp, this.file);
   }
 
+  // Distribution keys carry colons (exe:windows:zip), which Windows does not
+  // allow in paths, so the folder name is the key with anything unsafe replaced.
   installDir(id, distKey) {
-    return path.join(this.appsDir, id, distKey.replace(/[^a-z0-9:_-]/gi, '_'));
+    return path.join(this.appsDir, id, distKey.replace(/[^a-z0-9_-]/gi, '_'));
   }
 
   // Installed records are keyed by `${id}/${distKey}` so a generator can have both
