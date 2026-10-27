@@ -1,4 +1,4 @@
-// Resolve the shipped catalog offline (overlays only) and fail on any manifest
+// Resolve the shipped catalog offline (fallbacks only) and fail on any manifest
 // error, so a broken catalog never reaches a release.
 import { readFile } from 'node:fs/promises';
 import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';

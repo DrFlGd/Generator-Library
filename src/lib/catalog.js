@@ -3,13 +3,17 @@
 // is also refreshed from the Generator-Library repo itself; the user can add their
 // own sources from Settings.
 //
-// A source is { repo, manifest?, overlay?, enabled? }:
+// A source is { repo, manifest?, fallback?, overlay?, enabled? }:
 //   repo       owner/name on GitHub
 //   manifest   path of generator.json or generator-library.json in the repo
 //              (default: try both at the root)
-//   overlay    a manifest (or collection) used when the repo has none yet, or to
-//              patch what it publishes. Lets the library work before every repo
-//              adopts the convention.
+//   fallback   a snapshot of the manifest (or collection, with its entries
+//              inlined) used only when the repo cannot be read: offline, a
+//              private repo without a token, or a repo that has no manifest yet.
+//              What the repo publishes always wins. `npm run sync:fallbacks`
+//              refreshes the snapshots in the shipped catalog.
+//   overlay    a manifest merged over the result (overlay wins): how a fork can
+//              point at its upstream's releases or patch a listing.
 
 import { applyDefaults, normalizeCollection, normalizeManifest, overlayManifest } from './manifest.js';
 
@@ -28,6 +32,7 @@ export function normalizeCatalog(raw) {
     out.push({
       repo: source.repo,
       manifest: typeof source.manifest === 'string' ? source.manifest.replace(/^\/+/, '') : '',
+      fallback: source.fallback && typeof source.fallback === 'object' ? source.fallback : null,
       overlay: source.overlay && typeof source.overlay === 'object' ? source.overlay : null,
       overlayOnly: source.overlayOnly === true,
       enabled: source.enabled !== false,
@@ -67,9 +72,9 @@ export async function resolveSource(source, { readJson }) {
     }
   }
 
-  const raw = overlayManifest(published, source.overlay);
+  const raw = overlayManifest(published ?? source.fallback, source.overlay);
   if (!raw) {
-    problems.push({ repo, error: `no generator.json or generator-library.json found in ${repo} and no overlay in the catalog` });
+    problems.push({ repo, error: `no generator.json or generator-library.json found in ${repo} and no fallback or overlay in the catalog` });
     return { manifests, problems };
   }
 

@@ -30,7 +30,7 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/library.js` | On-disk state: installs, favorites, recents, settings, user-added sources. |
 | `src/main/` | Electron main process, IPC surface, generator windows (sandboxed, no Node). |
 | `src/renderer/` | The UI: search, facets, cards, detail view, settings. Plain DOM, no framework. |
-| `catalog/catalog.json` | The repositories the library ships knowing about, with overlay manifests until each repo carries its own. |
+| `catalog/catalog.json` | The repositories the library ships knowing about, each with a `fallback` snapshot of its manifest for offline use (`npm run sync:fallbacks` refreshes them). |
 | `schema/` | JSON Schemas for editor validation. |
 
 ### Why Electron
@@ -68,7 +68,7 @@ Common threads that shaped the convention:
 
 ## Changes to the existing repositories
 
-Each is a small, self-contained pull request:
+Each was a small, self-contained pull request, all merged on 2026-10-27:
 [terrain-press#14](https://github.com/DrFlGd/terrain-press/pull/14),
 [Generator-Standalone#11](https://github.com/DrFlGd/Generator-Standalone/pull/11),
 [Marble-Run-Maker#1](https://github.com/DrFlGd/Marble-Run-Maker/pull/1),
@@ -88,7 +88,7 @@ Each is a small, self-contained pull request:
    - Publish releases from `build.yml` so the library can install it.
    - Nice to have: a `python -m webmirror --mirror <url> --json` CLI mode. The library currently calls `MirrorEngine` directly through `python -c`, which works today but is coupled to the module's internals.
 
-Once a repository's manifest is merged, its overlay in `catalog/catalog.json` can shrink to `{ "repo": "DrFlGd/<name>" }`; until then the overlay matches what those pull requests add, so either copy works.
+Every repository now publishes its own manifest, which is what the library reads online. `catalog/catalog.json` keeps a `fallback` snapshot of each one (collections inlined) so the catalog still resolves offline, for the private Marble-Run-Maker without a token, and in `npm run check`. `npm run sync:fallbacks` refreshes the snapshots from GitHub; run it when a repository's manifest changes.
 
 ## Running and building
 
