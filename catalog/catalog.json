@@ -1,0 +1,310 @@
+{
+  "$schema": "../schema/catalog.schema.json",
+  "version": 1,
+  "$comment": "Repositories the library knows about. Each source is read from GitHub for a generator.json or generator-library.json; the overlay fills in what the repo does not publish yet. Once a repo carries its own manifest, shrink or drop its overlay here.",
+  "sources": [
+    {
+      "repo": "DrFlGd/terrain-press",
+      "note": "Fork of ianbauters/terrain-press. The committed site/ folder is the whole static app, so the offline copy comes straight from the repository tree.",
+      "overlay": {
+        "id": "terrain-press",
+        "name": "Terrain Press",
+        "summary": "Turn real NASA elevation data into 3D-printable ornaments and jigsaw puzzles.",
+        "description": "Pick a place on Earth, the Moon, Mars, Mercury, Ceres, Vesta, Venus, Pluto or the gas giants, choose a shape and a size, and download print-ready STL and 3MF files. Everything is computed in the browser from real spacecraft measurements.",
+        "tags": ["terrain", "ornament", "puzzle", "nasa", "3mf", "stl"],
+        "process": "3d-print",
+        "license": "AGPL-3.0-or-later",
+        "homepage": "https://ianbauters.github.io/terrain-press/",
+        "upstream": "ianbauters/terrain-press",
+        "distributions": [
+          { "kind": "web", "url": "https://ianbauters.github.io/terrain-press/", "label": "Open online" },
+          { "kind": "bundle", "from": { "type": "repo", "path": "site" }, "entry": "index.html", "label": "Install offline copy", "notes": "Downloads the site/ folder with the bundled elevation data (about 300 MB)." },
+          { "kind": "exe", "platform": "windows", "install": "portable", "from": { "type": "release", "tag": "desktop-v*", "asset": "Terrain-Press-*-Portable.exe", "prerelease": true }, "label": "Install Windows app" }
+        ]
+      }
+    },
+    {
+      "repo": "DrFlGd/Generator-Standalone",
+      "note": "Vostok Labs monorepo: ten web generators under apps/ plus MakerWorld listings. The whole set also ships as a private Windows desktop build.",
+      "overlay": {
+        "id": "vostok-labs",
+        "name": "Vostok Labs",
+        "defaults": {
+          "process": "3d-print",
+          "license": "CC-BY-NC-ND-4.0",
+          "tags": ["vostok-labs"]
+        },
+        "generators": [
+          {
+            "id": "clicker-generator",
+            "name": "Image to Clicker",
+            "summary": "Turn any image, logo, or custom text into a clicker fidget.",
+            "tags": ["fidgets", "keychains", "image"],
+            "icon": "apps/hub/public/thumbs/clicker.png",
+            "homepage": "https://vostoklabs.github.io/Clicker-Generator/",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/Clicker-Generator/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/Clicker-Generator/" },
+              { "kind": "web", "url": "https://makerworld.com/en/models/2980346", "label": "Open on MakerWorld" }
+            ]
+          },
+          {
+            "id": "magnet-generator",
+            "name": "Fridge Magnet & Fidget Slider",
+            "summary": "Turn any image into a printable fridge magnet, or a two-piece magnetic fidget slider that clicks as it slides.",
+            "tags": ["fidgets", "desk-home", "image"],
+            "icon": "apps/hub/public/thumbs/magnet.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/magnet/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/magnet/" },
+              { "kind": "web", "url": "https://makerworld.com/en/models/3137555", "label": "Open on MakerWorld" }
+            ]
+          },
+          {
+            "id": "keycap-generator",
+            "name": "Custom Keycap Generator",
+            "summary": "Custom keycaps with icons, logos, or letters.",
+            "tags": ["desk-home", "keyboard"],
+            "icon": "apps/hub/public/thumbs/keycap.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/SVG-keycap-generator/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/SVG-keycap-generator/" },
+              { "kind": "web", "url": "https://makerworld.com/en/models/2959969", "label": "Open on MakerWorld" }
+            ]
+          },
+          {
+            "id": "name-keychain",
+            "name": "Name Keychain Generator",
+            "summary": "Personalized plate-style name keychains with live font preview, pixel and script styles, multi-language, and 1 to 3 colour layers.",
+            "tags": ["keychains", "text"],
+            "icon": "apps/hub/public/thumbs/name-keychain.jpg",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/name-keychain/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/name-keychain/" }
+            ]
+          },
+          {
+            "id": "house-number",
+            "name": "House & Office Number Generator",
+            "summary": "Type a number, pick a plate, print a house or office sign that fits your door.",
+            "tags": ["signs", "text"],
+            "icon": "apps/hub/public/thumbs/house-number.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/house-number/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/house-number/" }
+            ]
+          },
+          {
+            "id": "pen-topper",
+            "name": "Pen Topper Generator",
+            "summary": "Personalised pen and pencil toppers: any name, 257 fonts, 1,487 symbols, and a socket sized to the pen you own.",
+            "tags": ["desk-home", "text"],
+            "icon": "apps/hub/public/thumbs/pen-topper.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/pen-topper/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/pen-topper/" }
+            ]
+          },
+          {
+            "id": "foldbox",
+            "name": "Fold-Up Box Generator",
+            "summary": "Set the size, pick a structure, print it flat as one thin grooved sheet, then fold it into a box.",
+            "tags": ["boxes"],
+            "icon": "apps/hub/public/thumbs/foldbox.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/foldbox/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/foldbox/" }
+            ]
+          },
+          {
+            "id": "keychain-carabiner",
+            "name": "Keychain Carabiner Set",
+            "summary": "A snap-hook clip and a chain to hang your keys or a fidget on, printed flat in one job.",
+            "tags": ["keychains"],
+            "icon": "apps/hub/public/thumbs/keychain-carabiner.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/keychain-carabiner/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/keychain-carabiner/" }
+            ]
+          },
+          {
+            "id": "laser-studio",
+            "name": "Laser Studio",
+            "summary": "58 laser templates (keychains, pet tags, ornaments, QR stands, coasters and signs) with fonts, symbols and pattern fills, exported as SVG.",
+            "tags": ["keychains", "signs", "svg"],
+            "process": "laser",
+            "icon": "apps/hub/public/thumbs/laser-studio.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/laser-studio/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/laser-studio/" }
+            ]
+          },
+          {
+            "id": "laser-box",
+            "name": "Laser Box",
+            "summary": "Pick a box, set its size and material, add a pattern, download a cut file that fits together.",
+            "tags": ["boxes", "svg"],
+            "process": "laser",
+            "icon": "apps/hub/public/thumbs/laser-box.png",
+            "distributions": [
+              { "kind": "web", "url": "https://vostoklabs.github.io/laser-box/" },
+              { "kind": "mirror", "url": "https://vostoklabs.github.io/laser-box/" }
+            ]
+          },
+          {
+            "id": "vostok-labs-standalone",
+            "name": "Vostok Labs Standalone (Windows)",
+            "summary": "All ten Vostok Labs web generators bundled as one offline Windows desktop app, including the LED Lightbox generator.",
+            "tags": ["desktop", "offline"],
+            "icon": "apps/hub/public/favicon.png",
+            "distributions": [
+              { "kind": "exe", "platform": "windows", "install": "installer", "from": { "type": "release", "tag": "v*", "asset": "*-setup.exe" }, "label": "Install Windows app", "exec": "vostoklabs-standalone.exe", "notes": "Published by the repository's Windows release workflow." }
+            ]
+          },
+          {
+            "id": "large-box",
+            "name": "Large Customizable Box",
+            "summary": "Large customizable print-in-place box. No hardware or screws required.",
+            "tags": ["boxes", "makerworld"],
+            "icon": "apps/hub/public/thumbs/large-box.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/2300059", "label": "Open on MakerWorld" }]
+          },
+          {
+            "id": "rugged-box",
+            "name": "Customizable Rugged Box",
+            "summary": "Super customizable rugged box. Print in place, no extra hardware.",
+            "tags": ["boxes", "makerworld"],
+            "icon": "apps/hub/public/thumbs/rugged-box.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/1642041", "label": "Open on MakerWorld" }]
+          },
+          {
+            "id": "washer-spacer",
+            "name": "Washer & Spacer Generator",
+            "summary": "Customizable washer and spacer generator. Set ID, OD, and thickness.",
+            "tags": ["desk-home", "makerworld"],
+            "icon": "apps/hub/public/thumbs/washer-spacer.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/1669724", "label": "Open on MakerWorld" }]
+          },
+          {
+            "id": "headphone-hook",
+            "name": "Desk Headphone Hook",
+            "summary": "Adjustable desk headphone hook. Parametric to fit any desk thickness.",
+            "tags": ["desk-home", "makerworld"],
+            "icon": "apps/hub/public/thumbs/headphone-hook.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/2483947", "label": "Open on MakerWorld" }]
+          },
+          {
+            "id": "edge-mount-dock",
+            "name": "Edge Mount Device Dock",
+            "summary": "Customizable edge mount dock for phones, e-readers and tablets.",
+            "tags": ["desk-home", "makerworld"],
+            "icon": "apps/hub/public/thumbs/edge-mount-dock.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/1684531", "label": "Open on MakerWorld" }]
+          },
+          {
+            "id": "powerstrip-holder",
+            "name": "Screw-On Power Strip Holder",
+            "summary": "Customizable screw-on power strip holder. Mount a strip securely under a desk.",
+            "tags": ["desk-home", "makerworld"],
+            "icon": "apps/hub/public/thumbs/powerstrip-holder.png",
+            "distributions": [{ "kind": "web", "url": "https://makerworld.com/en/models/1732918", "label": "Open on MakerWorld" }]
+          }
+        ]
+      }
+    },
+    {
+      "repo": "DrFlGd/Marble-Run-Maker",
+      "note": "Private repository: needs a GitHub token in Settings. The Windows build is currently only an Actions artifact; the exe distribution below works once the workflow publishes a release.",
+      "overlay": {
+        "id": "marble-run-maker",
+        "name": "Marble Run Maker",
+        "summary": "Offline 16 mm marble run builder with bundled Plain and Japandi high-resolution 3MF profiles.",
+        "description": "A private, customized local mirror of the 16 mm Marble Run Builder, packaged with an Electron Windows wrapper. Runs without an account, cloud hosting or Internet access.",
+        "tags": ["marble-run", "toys", "offline"],
+        "process": "3d-print",
+        "distributions": [
+          { "kind": "bundle", "from": { "type": "repo", "path": "Marbles" }, "entry": "index.html", "label": "Install offline copy", "notes": "The mirrored site as committed; large 3MF profiles stored with Git LFS are not included." },
+          { "kind": "exe", "platform": "windows", "install": "portable", "from": { "type": "release", "asset": "Marble-Run-Maker-Portable-*.exe" }, "label": "Install Windows app" }
+        ]
+      }
+    },
+    {
+      "repo": "DrFlGd/gridfinity-layout-tool",
+      "note": "Fork of andymai/gridfinity-layout-tool. The desktop workflow publishes desktop-v* releases with an NSIS installer. Bin Designer and Baseplate Generator are listed separately so they can be found on their own.",
+      "overlay": {
+        "id": "gridfinity",
+        "name": "Gridfinity Layout Tool",
+        "defaults": {
+          "process": "3d-print",
+          "license": "AGPL-3.0-only",
+          "tags": ["gridfinity", "organizer"],
+          "upstream": "andymai/gridfinity-layout-tool",
+          "homepage": "https://gridfinitylayouttool.com"
+        },
+        "generators": [
+          {
+            "id": "gridfinity-layout-tool",
+            "name": "Gridfinity Layout Tool",
+            "summary": "Plan and design Gridfinity drawer organizer layouts for 3D printing, with a layout planner, 3D preview and print list.",
+            "tags": ["layout", "drawers"],
+            "icon": "public/icons/icon-512.png",
+            "distributions": [
+              { "kind": "web", "url": "https://gridfinitylayouttool.com/" },
+              { "kind": "exe", "platform": "windows", "install": "installer", "from": { "type": "release", "tag": "desktop-v*", "asset": "*setup.exe" }, "label": "Install Windows app", "notes": "Offline installer with bundled WebView2. Cloud sharing and sign-in are unavailable offline." }
+            ]
+          },
+          {
+            "id": "gridfinity-bin-designer",
+            "name": "Gridfinity Bin Designer",
+            "summary": "Parametric Gridfinity bin generator with STL export.",
+            "tags": ["bins"],
+            "icon": "public/icons/icon-512.png",
+            "distributions": [{ "kind": "web", "url": "https://gridfinitylayouttool.com/designer" }]
+          },
+          {
+            "id": "gridfinity-baseplate-generator",
+            "name": "Gridfinity Baseplate Generator",
+            "summary": "3D-printable Gridfinity baseplates with automatic splitting and STL, STEP and 3MF export.",
+            "tags": ["baseplates"],
+            "icon": "public/icons/icon-512.png",
+            "distributions": [{ "kind": "web", "url": "https://gridfinitylayouttool.com/baseplate" }]
+          }
+        ]
+      }
+    },
+    {
+      "repo": "DrFlGd/easy-enclosure",
+      "note": "Fork of bruceborrett/easy-enclosure (Angular + JSCAD). No desktop build; offline use goes through WebMirror.",
+      "overlay": {
+        "id": "easy-enclosure",
+        "name": "Easy Enclosure",
+        "summary": "Design 3D-printable enclosures for electronics with snap-fit lids, PCB standoffs and cable clamps; exports STL and STEP.",
+        "tags": ["enclosure", "electronics", "step", "stl"],
+        "process": "3d-print",
+        "license": "MIT",
+        "upstream": "bruceborrett/easy-enclosure",
+        "homepage": "https://bruceborrett.github.io/easy-enclosure/",
+        "icon": "public/screenshot.png",
+        "distributions": [
+          { "kind": "web", "url": "https://bruceborrett.github.io/easy-enclosure/" },
+          { "kind": "mirror", "url": "https://bruceborrett.github.io/easy-enclosure/" }
+        ]
+      }
+    },
+    {
+      "repo": "DrFlGd/WebMirror",
+      "note": "The mirroring tool itself, so it can be installed from the library. Builds are Actions artifacts today; the exe distribution works once a release is published.",
+      "overlay": {
+        "id": "webmirror",
+        "name": "WebMirror",
+        "summary": "Save public static websites and serve them locally. The library uses it to mirror web generators for offline use.",
+        "tags": ["tool", "offline"],
+        "process": "tool",
+        "distributions": [
+          { "kind": "exe", "platform": "windows", "install": "zip", "from": { "type": "release", "asset": "WebMirror-Windows*.zip" }, "exec": "WebMirror.exe", "label": "Install for Windows" },
+          { "kind": "exe", "platform": "linux", "install": "zip", "from": { "type": "release", "asset": "WebMirror-Linux*" }, "exec": "WebMirror", "label": "Install for Linux" }
+        ]
+      }
+    }
+  ]
+}

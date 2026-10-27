@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Generator Library</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">▣</span>
+      <span class="brand-name">Generator Library</span>
+    </div>
+    <label class="search">
+      <span class="visually-hidden">Search generators</span>
+      <input id="search" type="search" placeholder="Search generators, tags, repos…" autocomplete="off" />
+    </label>
+    <div class="topbar-actions">
+      <button id="refresh" class="btn" title="Re-read the catalog from GitHub">Refresh</button>
+      <button id="check-updates" class="btn" title="Compare installed generators with GitHub">Check updates</button>
+      <button id="open-settings" class="btn btn-quiet" aria-label="Settings">Settings</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" aria-label="Filters">
+      <section class="facet">
+        <h2>Show</h2>
+        <div class="chips" id="show-chips">
+          <button class="chip is-active" data-show="all">All</button>
+          <button class="chip" data-show="installed">Installed</button>
+          <button class="chip" data-show="updates">Updates</button>
+          <button class="chip" data-show="favorites">Favorites</button>
+          <button class="chip" data-show="recent">Recent</button>
+        </div>
+      </section>
+      <section class="facet">
+        <h2>Runs as</h2>
+        <div class="chips" id="kind-chips"></div>
+      </section>
+      <section class="facet">
+        <h2>Process</h2>
+        <div class="chips" id="process-chips"></div>
+      </section>
+      <section class="facet">
+        <h2>Tags</h2>
+        <div class="chips" id="tag-chips"></div>
+      </section>
+      <section class="facet facet-footer">
+        <p id="catalog-source" class="muted"></p>
+        <button id="show-problems" class="link muted" hidden></button>
+      </section>
+    </aside>
+
+    <main class="content">
+      <div id="status" class="status" hidden></div>
+      <p id="result-count" class="muted result-count"></p>
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <div id="empty" class="empty" hidden>
+        <h2>Nothing matches</h2>
+        <p>Try fewer filters, or add a repository under Settings.</p>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="detail" class="dialog detail">
+    <form method="dialog" class="dialog-head">
+      <div>
+        <h2 id="detail-name"></h2>
+        <p id="detail-summary" class="muted"></p>
+      </div>
+      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+    </form>
+    <div class="detail-body">
+      <div id="detail-media" class="detail-media"></div>
+      <div id="detail-tags" class="tags"></div>
+      <p id="detail-description" class="detail-description"></p>
+      <h3>Ways to run it</h3>
+      <div id="detail-dists" class="dist-list"></div>
+      <h3>Source</h3>
+      <p id="detail-source" class="muted"></p>
+    </div>
+  </dialog>
+
+  <dialog id="settings" class="dialog">
+    <form method="dialog" class="dialog-head">
+      <h2>Settings</h2>
+      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+    </form>
+    <form id="settings-form" class="settings-form">
+      <label>
+        <span>GitHub token</span>
+        <input name="githubToken" type="password" placeholder="Needed for private repos and higher rate limits" autocomplete="off" />
+        <small>Create a fine-grained token with read access to Contents and Metadata. Stored only on this machine.</small>
+      </label>
+      <label>
+        <span>Catalog repository</span>
+        <input name="catalogRepo" type="text" placeholder="owner/name" />
+        <small>The library reads <code>catalog/catalog.json</code> from here on refresh.</small>
+      </label>
+      <label>
+        <span>Python for WebMirror</span>
+        <input name="pythonPath" type="text" placeholder="Leave empty to use python3 / py from PATH" />
+        <small>Used to mirror live sites for offline use. Install with <code>pip install git+https://github.com/DrFlGd/WebMirror</code>.</small>
+      </label>
+      <label>
+        <span>WebMirror home</span>
+        <input name="webmirrorHome" type="text" placeholder="~/.webmirror" />
+      </label>
+      <label class="check">
+        <input name="checkUpdatesOnStart" type="checkbox" />
+        <span>Check for updates when the library starts</span>
+      </label>
+      <div class="row">
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+    <section class="settings-sources">
+      <h3>Your repositories</h3>
+      <p class="muted">Add any GitHub repository that has a <code>generator.json</code> or <code>generator-library.json</code>.</p>
+      <ul id="sources-list" class="sources"></ul>
+      <form id="add-source" class="row">
+        <input name="repo" type="text" placeholder="owner/name" required />
+        <input name="manifest" type="text" placeholder="path (optional)" />
+        <button type="submit" class="btn">Add</button>
+      </form>
+    </section>
+    <section class="settings-sources">
+      <h3>WebMirror snapshots</h3>
+      <p class="muted">Sites already mirrored with WebMirror on this machine.</p>
+      <ul id="snapshots-list" class="sources"></ul>
+    </section>
+  </dialog>
+
+  <dialog id="problems" class="dialog">
+    <form method="dialog" class="dialog-head">
+      <h2>Catalog notes</h2>
+      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+    </form>
+    <ul id="problems-list" class="problems"></ul>
+  </dialog>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

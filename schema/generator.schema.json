@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/DrFlGd/Generator-Library/main/schema/generator.schema.json",
+  "title": "Generator manifest (generator.json)",
+  "description": "Describes one model generator so Generator Library can list, install, launch and update it.",
+  "type": "object",
+  "required": ["id", "name", "distributions"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "Stable, unique, lowercase. Changing it makes the library treat the generator as new." },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "description": "Informational; the library tracks release tags and commits for updates." },
+    "summary": { "type": "string", "description": "One sentence shown on the card." },
+    "description": { "type": "string", "description": "Longer text shown in the detail view. Newlines are kept." },
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "process": { "type": "string", "description": "What the output is for: 3d-print, laser, cnc, tool…" },
+    "category": { "type": "string" },
+    "icon": { "type": "string", "description": "Path in the repository, or an https URL." },
+    "screenshots": { "type": "array", "items": { "type": "string" } },
+    "homepage": { "type": "string", "format": "uri" },
+    "license": { "type": "string", "description": "SPDX identifier." },
+    "author": { "type": "string" },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "description": "owner/name on GitHub. Defaults to the repository the manifest was read from." },
+    "upstream": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "description": "For forks: the original repository, shown as a link." },
+    "distributions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/distribution" }
+    }
+  },
+  "$defs": {
+    "from": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "asset"],
+          "properties": {
+            "type": { "const": "release" },
+            "repo": { "type": "string", "description": "Release repository when it differs from the manifest's repo (for example the upstream of a fork)." },
+            "tag": { "type": "string", "default": "latest", "description": "\"latest\", an exact tag, or a glob such as desktop-v*." },
+            "asset": { "type": "string", "description": "Asset file name or glob, e.g. Terrain-Press-*-Portable.exe" },
+            "prerelease": { "type": "boolean", "default": false, "description": "Also consider pre-releases." }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "repo" },
+            "repo": { "type": "string" },
+            "ref": { "type": "string", "description": "Branch or tag; default branch when omitted." },
+            "path": { "type": "string", "description": "Folder inside the repository to install, e.g. site or dist. Empty means the whole tree." }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "distribution": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["web", "bundle", "exe", "mirror"] },
+        "label": { "type": "string", "description": "Button text. Defaults per kind." },
+        "notes": { "type": "string" },
+        "platform": { "enum": ["windows", "macos", "linux"] },
+        "url": { "type": "string", "format": "uri", "description": "web and mirror: the page to open or capture." },
+        "githubPagesFiles": { "type": "boolean", "description": "mirror: also pull every published repository file (WebMirror's GitHub Pages mode)." },
+        "browserCapture": { "type": "boolean", "default": true, "description": "mirror: capture JavaScript-loaded assets with a local Chrome/Edge." },
+        "from": { "$ref": "#/$defs/from", "description": "bundle and exe: where the files come from." },
+        "entry": { "type": "string", "default": "index.html", "description": "bundle: page to open, relative to the unpacked folder." },
+        "spa": { "type": "boolean", "default": false, "description": "bundle: serve the entry page for unknown routes (client-side routing)." },
+        "install": { "enum": ["portable", "installer", "zip"], "default": "portable", "description": "exe: portable runs the file; installer runs it once to install; zip unpacks and runs exec." },
+        "exec": { "type": "string", "description": "exe: executable path inside the unpacked archive (zip) or the file the installer leaves behind." }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "web" } } }, "then": { "required": ["url"] } },
+        { "if": { "properties": { "kind": { "const": "mirror" } } }, "then": { "required": ["url"] } },
+        { "if": { "properties": { "kind": { "const": "bundle" } } }, "then": { "required": ["from"] } },
+        { "if": { "properties": { "kind": { "const": "exe" } } }, "then": { "required": ["from", "platform"] } }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

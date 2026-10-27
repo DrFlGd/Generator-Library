@@ -1,0 +1,66 @@
+{
+  "name": "generator-library",
+  "productName": "Generator Library",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One place to browse, search, install, launch and update web and desktop model generators from GitHub.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/main/main.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "check": "node scripts/check-catalog.js && npm test",
+    "serve:renderer": "node scripts/serve-renderer.js",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:linux": "electron-builder --linux AppImage --x64 --publish never",
+    "dist:mac": "electron-builder --mac dmg --publish never"
+  },
+  "dependencies": {
+    "fflate": "0.8.2"
+  },
+  "devDependencies": {
+    "electron": "38.3.0",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "io.github.drflgd.generator-library",
+    "productName": "Generator Library",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "catalog/**/*",
+      "schema/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "artifactName": "Generator-Library-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Generator-Library-Portable-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
+  }
+}

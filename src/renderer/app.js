@@ -1,0 +1,456 @@
+// The library UI. Plain DOM, one state object, re-rendered on every change. The
+// only way out of this file is `window.library`, the preload bridge (or the mock
+// in scripts/serve-renderer.js when developing the page in a browser).
+
+const api = window.library;
+
+const KIND_LABELS = { web: 'Online', bundle: 'Offline copy', exe: 'Desktop app', mirror: 'Mirror' };
+const PLATFORM_LABELS = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+
+const state = {
+  data: null, // last snapshot from main
+  query: '',
+  show: 'all',
+  kinds: new Set(),
+  process: '',
+  tags: new Set(),
+  results: [],
+  updates: new Map(), // `${id}/${distKey}` -> result
+  progress: new Map(), // `${id}/${distKey}` -> { phase, message, received, total }
+  busy: new Set(),
+  detailId: null,
+};
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...children) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'dataset') Object.assign(node.dataset, v);
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) node.setAttribute(k, v === true ? '' : v);
+  }
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    node.append(child.nodeType ? child : document.createTextNode(String(child)));
+  }
+  return node;
+};
+
+async function call(name, payload) {
+  const res = await api[name](payload);
+  if (!res.ok) throw new Error(res.error);
+  return res.value;
+}
+
+function recordKey(id, distKey) {
+  return `${id}/${distKey}`;
+}
+
+function installedRecords(id) {
+  return Object.values(state.data?.installed ?? {}).filter((r) => r.id === id);
+}
+
+function hasUpdate(id) {
+  return [...state.updates.values()].some((u) => u.id === id && u.hasUpdate);
+}
+
+function generatorById(id) {
+  return state.data?.generators.find((g) => g.id === id) ?? null;
+}
+
+function setStatus(message, tone = '') {
+  const box = $('status');
+  if (!message) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.textContent = message;
+  box.className = `status ${tone ? `is-${tone}` : ''}`;
+}
+
+// ───────────────────────────── search & filters ─────────────────────────────
+
+async function runSearch() {
+  if (!state.data) return;
+  const filters = { kinds: [...state.kinds], process: state.process, tags: [...state.tags] };
+  let ids = await call('search', { query: state.query, filters });
+  const installedIds = new Set(Object.values(state.data.installed).map((r) => r.id));
+  if (state.show === 'installed') ids = ids.filter((id) => installedIds.has(id));
+  if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id));
+  if (state.show === 'favorites') ids = ids.filter((id) => state.data.favorites.includes(id));
+  if (state.show === 'recent') ids = state.data.recent.filter((id) => ids.includes(id));
+  state.results = ids;
+  renderGrid();
+}
+
+function renderFacets() {
+  const { facets } = state.data;
+  const chip = (label, count, active, onclick) =>
+    el('button', { class: `chip ${active ? 'is-active' : ''}`, onclick, type: 'button' }, label, count !== undefined ? el('small', {}, count) : null);
+
+  const kinds = $('kind-chips');
+  kinds.replaceChildren(
+    ...facets.kinds.map(({ value, count }) =>
+      chip(KIND_LABELS[value] ?? value, count, state.kinds.has(value), () => {
+        state.kinds.has(value) ? state.kinds.delete(value) : state.kinds.add(value);
+        renderFacets();
+        runSearch();
+      }),
+    ),
+  );
+  const processes = $('process-chips');
+  processes.replaceChildren(
+    ...facets.processes.map(({ value, count }) =>
+      chip(value, count, state.process === value, () => {
+        state.process = state.process === value ? '' : value;
+        renderFacets();
+        runSearch();
+      }),
+    ),
+  );
+  const tags = $('tag-chips');
+  tags.replaceChildren(
+    ...facets.tags.slice(0, 40).map(({ value, count }) =>
+      chip(value, count, state.tags.has(value), () => {
+        state.tags.has(value) ? state.tags.delete(value) : state.tags.add(value);
+        renderFacets();
+        runSearch();
+      }),
+    ),
+  );
+  for (const button of $('show-chips').querySelectorAll('.chip')) {
+    button.classList.toggle('is-active', button.dataset.show === state.show);
+  }
+  $('catalog-source').textContent = `${state.data.generators.length} generators · catalog from ${state.data.catalogSource}`;
+  const problems = $('show-problems');
+  problems.hidden = state.data.problems.length === 0;
+  problems.textContent = `${state.data.problems.length} catalog note${state.data.problems.length === 1 ? '' : 's'}`;
+}
+
+// ───────────────────────────────── cards ─────────────────────────────────
+
+function iconFor(g) {
+  if (g.icon && /^https?:\/\//.test(g.icon)) return el('img', { src: g.icon, alt: '' });
+  if (g.icon && g.repo) return el('img', { src: `https://raw.githubusercontent.com/${g.repo}/HEAD/${g.icon.replace(/^\/+/, '')}`, alt: '' });
+  return g.name.trim().slice(0, 1).toUpperCase();
+}
+
+function renderCard(g) {
+  const installed = installedRecords(g.id);
+  const update = hasUpdate(g.id);
+  const fav = state.data.favorites.includes(g.id);
+  const kinds = [...new Set(g.distributions.map((d) => d.kind))];
+  const card = el(
+    'article',
+    { class: 'card', tabindex: '0', role: 'button', onclick: () => openDetail(g.id), onkeydown: (e) => e.key === 'Enter' && openDetail(g.id) },
+    el(
+      'div',
+      { class: 'card-head' },
+      el('div', { class: 'card-icon' }, iconFor(g)),
+      el('div', {}, el('div', { class: 'card-title' }, g.name), el('div', { class: 'card-sub' }, g.collection ? `${g.collection.name} · ${g.repo}` : g.repo)),
+    ),
+    el('p', { class: 'card-summary' }, g.summary || g.description || ''),
+    el('div', { class: 'tags' }, g.tags.slice(0, 5).map((t) => el('span', { class: 'tag' }, t))),
+    el(
+      'div',
+      { class: 'card-foot' },
+      kinds.map((k) => el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k)),
+      installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
+      update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
+      el(
+        'button',
+        {
+          class: `fav ${fav ? 'is-on' : ''}`,
+          type: 'button',
+          'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
+          onclick: async (e) => {
+            e.stopPropagation();
+            await call('toggleFavorite', { id: g.id });
+            await reloadState({ keepSearch: true });
+          },
+        },
+        fav ? '★' : '☆',
+      ),
+    ),
+  );
+  return card;
+}
+
+function renderGrid() {
+  const grid = $('grid');
+  const items = state.results.map(generatorById).filter(Boolean);
+  grid.replaceChildren(...items.map(renderCard));
+  $('empty').hidden = items.length > 0;
+  $('result-count').textContent = items.length ? `${items.length} generator${items.length === 1 ? '' : 's'}` : '';
+}
+
+// ───────────────────────────────── detail ─────────────────────────────────
+
+function distKeyOf(d) {
+  return d.key;
+}
+
+function renderDistribution(g, d) {
+  const key = distKeyOf(d);
+  const rk = recordKey(g.id, key);
+  const record = state.data.installed[rk] ?? null;
+  const usable = g.usable.includes(key);
+  const progress = state.progress.get(rk);
+  const update = state.updates.get(rk);
+  const busy = state.busy.has(rk);
+  const title = `${KIND_LABELS[d.kind] ?? d.kind}${d.platform ? ` · ${PLATFORM_LABELS[d.platform]}` : ''}`;
+  const metaParts = [];
+  if (d.url) metaParts.push(d.url);
+  if (d.from?.type === 'release') metaParts.push(`GitHub release ${d.from.tag === 'latest' ? '(latest)' : d.from.tag} · ${d.from.asset}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
+  if (d.from?.type === 'repo') metaParts.push(`Repository files${d.from.path ? ` under ${d.from.path}/` : ''}${d.from.ref ? ` at ${d.from.ref}` : ''}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
+  if (record) metaParts.push(`Installed ${record.version}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}`);
+  if (update?.hasUpdate) metaParts.push(`Update available: ${update.latest.version}`);
+  if (update?.error) metaParts.push(`Update check failed: ${update.error}`);
+  if (d.notes) metaParts.push(d.notes);
+  if (!usable) metaParts.push('Not for this computer');
+
+  const actions = [];
+  const act = (label, name, { primary = false, confirm = false } = {}) =>
+    el(
+      'button',
+      {
+        class: `btn btn-small ${primary ? 'btn-primary' : ''}`,
+        type: 'button',
+        disabled: busy || !usable,
+        onclick: async () => {
+          if (confirm && !window.confirm(`${label} ${g.name}?`)) return;
+          await perform(name, g, key);
+        },
+      },
+      label,
+    );
+  if (d.kind === 'web') actions.push(act(d.label || 'Open online', 'openWeb', { primary: true }));
+  if (d.kind === 'mirror') {
+    if (record) actions.push(act('Open offline', 'launch', { primary: true }), act('Mirror again', 'mirror'), act('Remove', 'uninstall', { confirm: true }));
+    else actions.push(act(d.label || 'Mirror for offline use', 'mirror', { primary: true }));
+  }
+  if (d.kind === 'bundle' || d.kind === 'exe') {
+    if (record) {
+      actions.push(act(d.kind === 'exe' && d.install === 'installer' ? 'Run installer' : 'Launch', 'launch', { primary: true }));
+      if (update?.hasUpdate) actions.push(act('Update', 'install'));
+      actions.push(act('Folder', 'openFolder'), act('Remove', 'uninstall', { confirm: true }));
+    } else {
+      actions.push(act(d.label || 'Install', 'install', { primary: true }));
+    }
+  }
+
+  const node = el(
+    'div',
+    { class: `dist ${usable ? '' : 'is-unavailable'}` },
+    el(
+      'div',
+      { class: 'dist-info' },
+      el('div', { class: 'dist-title' }, title),
+      el('div', { class: 'dist-meta' }, metaParts.join(' · ')),
+      progress && progress.phase !== 'done'
+        ? el('div', {}, el('div', { class: 'dist-meta' }, progress.message), progress.total ? el('div', { class: 'progress' }, el('div', { style: `width:${Math.round((100 * progress.received) / progress.total)}%` })) : null)
+        : null,
+    ),
+    el('div', { class: 'dist-actions' }, actions),
+  );
+  return node;
+}
+
+async function perform(name, g, key) {
+  const rk = recordKey(g.id, key);
+  state.busy.add(rk);
+  renderDetail();
+  try {
+    await call(name, { id: g.id, distKey: key });
+    if (name === 'install') state.updates.delete(rk);
+    setStatus('');
+  } catch (error) {
+    setStatus(`${g.name}: ${error.message}`, 'error');
+  } finally {
+    state.busy.delete(rk);
+    state.progress.delete(rk);
+    await reloadState({ keepSearch: true });
+  }
+}
+
+function openDetail(id) {
+  state.detailId = id;
+  renderDetail();
+  const dialog = $('detail');
+  if (!dialog.open) dialog.showModal();
+}
+
+function renderDetail() {
+  const g = state.detailId ? generatorById(state.detailId) : null;
+  if (!g) return;
+  $('detail-name').textContent = g.name;
+  $('detail-summary').textContent = [g.summary, g.version ? `v${g.version}` : '', g.license].filter(Boolean).join(' · ');
+  const media = $('detail-media');
+  media.replaceChildren(...g.screenshots.slice(0, 6).map((src) => el('img', { src: /^https?:/.test(src) ? src : `https://raw.githubusercontent.com/${g.repo}/HEAD/${src.replace(/^\/+/, '')}`, alt: '', loading: 'lazy' })));
+  media.hidden = g.screenshots.length === 0;
+  $('detail-tags').replaceChildren(...g.tags.map((t) => el('span', { class: 'tag' }, t)), g.process ? el('span', { class: 'tag' }, g.process) : null);
+  $('detail-description').textContent = g.description || g.summary || '';
+  $('detail-dists').replaceChildren(...g.distributions.map((d) => renderDistribution(g, d)));
+  const source = $('detail-source');
+  source.replaceChildren(
+    el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.repo}` }) }, `github.com/${g.repo}`),
+    g.upstream ? el('span', {}, ' · fork of ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.upstream}` }) }, g.upstream)) : null,
+    g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
+    g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : el('span', { class: 'muted' }, ' · described by the catalog (no generator.json in the repo yet)'),
+  );
+}
+
+// ──────────────────────────────── settings ────────────────────────────────
+
+function renderSettings() {
+  const form = $('settings-form');
+  const s = state.data.settings;
+  form.githubToken.value = s.githubToken;
+  form.githubToken.placeholder = state.data.hasToken ? 'Token saved · enter a new one to replace it' : 'Needed for private repos and higher rate limits';
+  form.catalogRepo.value = s.catalogRepo;
+  form.pythonPath.value = s.pythonPath;
+  form.webmirrorHome.value = s.webmirrorHome;
+  form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
+  const list = $('sources-list');
+  list.replaceChildren(
+    ...state.data.sources.map((src) =>
+      el(
+        'li',
+        {},
+        el('span', {}, src.repo, src.manifest ? ` · ${src.manifest}` : ''),
+        el('button', { class: 'btn btn-small', type: 'button', onclick: () => call('removeSource', { repo: src.repo }).then(() => reloadState()) }, 'Remove'),
+      ),
+    ),
+  );
+  if (!state.data.sources.length) list.replaceChildren(el('li', { class: 'muted' }, 'None yet'));
+  call('webmirrorSnapshots')
+    .then((snaps) => {
+      const ul = $('snapshots-list');
+      ul.replaceChildren(
+        ...snaps.map((snap) =>
+          el('li', {}, el('span', {}, snap.url, ' ', el('small', { class: 'muted' }, snap.saved_at)), el('button', { class: 'btn btn-small', type: 'button', onclick: () => call('openSnapshot', { key: snap.key }).catch((e) => setStatus(e.message, 'error')) }, 'Open')),
+        ),
+      );
+      if (!snaps.length) ul.replaceChildren(el('li', { class: 'muted' }, 'No WebMirror snapshots found'));
+    })
+    .catch(() => {});
+}
+
+$('settings-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const patch = {
+    githubToken: form.githubToken.value.trim(),
+    catalogRepo: form.catalogRepo.value.trim(),
+    pythonPath: form.pythonPath.value.trim(),
+    webmirrorHome: form.webmirrorHome.value.trim(),
+    checkUpdatesOnStart: form.checkUpdatesOnStart.checked,
+  };
+  if (!patch.githubToken) delete patch.githubToken; // keep the saved one
+  try {
+    state.data = await call('updateSettings', patch);
+    renderSettings();
+    setStatus('Settings saved', 'good');
+    await refresh();
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+});
+
+$('add-source').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    state.data = await call('addSource', { repo: form.repo.value.trim(), manifest: form.manifest.value.trim() });
+    form.reset();
+    renderSettings();
+    renderFacets();
+    await runSearch();
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+});
+
+// ───────────────────────────────── wiring ─────────────────────────────────
+
+async function reloadState({ keepSearch = true } = {}) {
+  state.data = await call('getState');
+  renderFacets();
+  if (keepSearch) await runSearch();
+  if ($('detail').open) renderDetail();
+  if ($('settings').open) renderSettings();
+}
+
+async function refresh() {
+  setStatus('Reading catalog from GitHub…');
+  try {
+    state.data = await call('refreshCatalog');
+    setStatus('');
+  } catch (error) {
+    setStatus(`Catalog refresh failed: ${error.message}`, 'error');
+  }
+  renderFacets();
+  await runSearch();
+}
+
+async function checkUpdates() {
+  const button = $('check-updates');
+  button.disabled = true;
+  setStatus('Checking GitHub for updates…');
+  try {
+    const results = await call('checkUpdates', {});
+    state.updates = new Map(results.map((r) => [recordKey(r.id, r.distKey), r]));
+    const count = results.filter((r) => r.hasUpdate).length;
+    setStatus(count ? `${count} update${count === 1 ? '' : 's'} available` : results.length ? 'Everything is up to date' : 'Nothing installed yet', count ? 'good' : '');
+  } catch (error) {
+    setStatus(`Update check failed: ${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+  }
+  await runSearch();
+  if ($('detail').open) renderDetail();
+}
+
+$('search').addEventListener('input', (event) => {
+  state.query = event.target.value;
+  runSearch();
+});
+$('show-chips').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-show]');
+  if (!button) return;
+  state.show = button.dataset.show;
+  renderFacets();
+  runSearch();
+});
+$('refresh').addEventListener('click', refresh);
+$('check-updates').addEventListener('click', checkUpdates);
+$('open-settings').addEventListener('click', () => {
+  renderSettings();
+  $('settings').showModal();
+});
+$('show-problems').addEventListener('click', () => {
+  $('problems-list').replaceChildren(
+    ...state.data.problems.map((p) => el('li', {}, el('code', {}, p.repo, p.path ? `/${p.path}` : ''), ' — ', p.error)),
+  );
+  $('problems').showModal();
+});
+
+api.on('progress', (payload) => {
+  state.progress.set(recordKey(payload.id, payload.distKey), payload);
+  if ($('detail').open) renderDetail();
+});
+api.on('catalog:changed', () => reloadState());
+
+(async function boot() {
+  try {
+    state.data = await call('getState');
+    renderFacets();
+    await runSearch();
+    if (state.data.generators.length === 0) setStatus('Reading catalog from GitHub…');
+    if (state.data.settings.checkUpdatesOnStart && Object.keys(state.data.installed).length) checkUpdates();
+  } catch (error) {
+    setStatus(error.message, 'error');
+  }
+})();
