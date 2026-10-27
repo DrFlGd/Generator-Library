@@ -13,7 +13,9 @@ export function createJobs({ emit = () => {}, now = () => Date.now() } = {}) {
   let lastEmit = 0;
   let timer = null;
 
-  const snapshot = () => [...jobs.values()].map((j) => ({ ...j, log: [...j.log] })).sort((a, b) => b.startedAt - a.startedAt);
+  // Newest first; `seq` breaks ties between jobs started in the same millisecond.
+  const newestFirst = (a, b) => b.startedAt - a.startedAt || b.seq - a.seq;
+  const snapshot = () => [...jobs.values()].map((j) => ({ ...j, log: [...j.log] })).sort(newestFirst);
 
   function changed({ force = false } = {}) {
     const t = now();
@@ -29,14 +31,14 @@ export function createJobs({ emit = () => {}, now = () => Date.now() } = {}) {
   }
 
   function prune() {
-    const finished = [...jobs.values()].filter((j) => j.status !== 'running').sort((a, b) => b.startedAt - a.startedAt);
+    const finished = [...jobs.values()].filter((j) => j.status !== 'running').sort(newestFirst);
     for (const job of finished.slice(KEEP)) jobs.delete(job.id);
   }
 
   // Run `work(handle)` as a job. The returned promise settles with the work's
   // result or rethrows its error, so callers keep their own error handling.
   async function run({ title, kind = 'task', target = null }, work) {
-    const job = { id: `job-${++seq}`, title, kind, target, status: 'running', message: '', received: 0, total: 0, log: [], error: '', startedAt: now(), finishedAt: 0 };
+    const job = { id: `job-${++seq}`, seq, title, kind, target, status: 'running', message: '', received: 0, total: 0, log: [], error: '', startedAt: now(), finishedAt: 0 };
     jobs.set(job.id, job);
     const handle = {
       id: job.id,
