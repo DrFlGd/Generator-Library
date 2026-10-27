@@ -44,10 +44,11 @@ function parseOctal(buf) {
   return text ? parseInt(text, 8) : 0;
 }
 
-// Extract a .tar.gz. `subdir` keeps only entries under that path (after the
-// archive's single top-level folder, which GitHub names owner-repo-sha). Entries
-// are re-rooted so `subdir/index.html` lands at `dest/index.html`.
-export async function extractTarGz(archivePath, dest, { subdir = '' } = {}) {
+// Extract a .tar.gz. `strip` drops that many leading path components (1 for a
+// GitHub repository tarball, whose single top folder is named owner-repo-sha; 0
+// for a release asset). `subdir` then keeps only entries under that path and
+// re-roots them, so `site/index.html` lands at `dest/index.html`.
+export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1 } = {}) {
   const written = [];
   const skipped = [];
   const wanted = subdir.replace(/^\/+|\/+$/g, '');
@@ -81,7 +82,7 @@ export async function extractTarGz(archivePath, dest, { subdir = '' } = {}) {
     if (typeflag === 'L') entry.collect = 'longName';
     else if (typeflag === 'x') entry.collect = 'pax';
     else if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
-      const parts = name.split('/').filter(Boolean).slice(1); // drop GitHub's top folder
+      const parts = name.split('/').filter(Boolean).slice(strip);
       let rel = parts.join('/');
       if (wanted) {
         if (rel !== wanted && !rel.startsWith(wanted + '/')) return entry; // not under subdir

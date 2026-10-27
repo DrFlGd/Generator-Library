@@ -114,7 +114,7 @@ export async function installDistribution(manifest, dist, { library, github, onP
       if (dist.kind === 'bundle') record.entry = entryUnderExtracted(stagingDir, written, dist.entry);
       else record.exec = dist.exec && written.includes(dist.exec) ? dist.exec : findExecutable(written, dist.exec);
     } else if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) {
-      const { written } = await extractTarGz(downloadPath, stagingDir);
+      const { written } = await extractTarGz(downloadPath, stagingDir, { strip: 0 });
       if (dist.kind === 'bundle') record.entry = entryUnderExtracted(stagingDir, written, dist.entry);
       else record.exec = findExecutable(written, dist.exec);
     } else if (dist.kind === 'bundle' && /\.html?$/i.test(lower)) {
@@ -141,6 +141,8 @@ export async function installDistribution(manifest, dist, { library, github, onP
 
 function findExecutable(written, preferred) {
   if (preferred && written.includes(preferred)) return preferred;
+  // A macOS .app is a folder: the manifest names the bundle, the archive lists its files.
+  if (preferred && written.some((f) => f.startsWith(preferred + '/'))) return preferred;
   const byDepth = [...written].sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
   return (
     byDepth.find((f) => /\.exe$/i.test(f) && !/unins|setup/i.test(f)) ??

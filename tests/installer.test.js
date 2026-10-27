@@ -83,6 +83,29 @@ test('installs a repository subfolder as an offline bundle keyed by commit', asy
   assert.equal(update.hasUpdate, true);
 });
 
+test('installs a release tar.gz holding a bare executable, and a zipped macOS .app', async () => {
+  const library = await freshLibrary();
+  const work = await fs.mkdtemp(path.join(os.tmpdir(), 'genlib-rel-'));
+  await fs.writeFile(path.join(work, 'WebMirror'), '#!/bin/sh\n');
+  const tarPath = path.join(work, 'WebMirror-Linux.tar.gz');
+  execFileSync('tar', ['-czf', tarPath, '-C', work, 'WebMirror']);
+  const github = {
+    ...fakeGitHub({ tarPath }),
+    async resolveReleaseAsset() {
+      return { release: { tag: 'build-7', name: 'b', publishedAt: '', body: '', htmlUrl: '' }, asset: { name: 'WebMirror-Linux.tar.gz', url: 'tarball://x', size: 1 } };
+    },
+  };
+  const { manifest } = normalizeManifest({ id: 'wm', name: 'WM', repo: 'o/r', distributions: [{ kind: 'exe', platform: 'linux', install: 'zip', exec: 'WebMirror', from: { type: 'release', asset: 'WebMirror-Linux.tar.gz' } }] });
+  const record = await installDistribution(manifest, manifest.distributions[0], { library, github });
+  assert.equal(record.exec, 'WebMirror');
+  assert.equal(await fs.readFile(path.join(record.dir, 'WebMirror'), 'utf8'), '#!/bin/sh\n');
+
+  const zipBytes = zipSync({ 'WebMirror.app/Contents/MacOS/WebMirror': strToU8('bin'), 'WebMirror.app/Contents/Info.plist': strToU8('<plist/>') });
+  const mac = normalizeManifest({ id: 'wmm', name: 'WM', repo: 'o/r', distributions: [{ kind: 'exe', platform: 'macos', install: 'zip', exec: 'WebMirror.app', from: { type: 'release', asset: 'WebMirror-macOS.zip' } }] }).manifest;
+  const macRecord = await installDistribution(mac, mac.distributions[0], { library, github: fakeGitHub({ zipBytes }) });
+  assert.equal(macRecord.exec, 'WebMirror.app');
+});
+
 test('a bundle with no html entry is rejected and leaves nothing behind', async () => {
   const library = await freshLibrary();
   const zipBytes = zipSync({ 'data.bin': strToU8('x') });

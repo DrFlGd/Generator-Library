@@ -46,6 +46,10 @@ test('extractTarGz drops the top folder and can keep only a subdirectory', async
   const all = await extractTarGz(archive, whole);
   assert.ok(all.written.includes('README.md'));
   assert.ok(all.written.includes('source/build.py'));
+
+  const asIs = path.join(dir, 'as-is');
+  const kept = await extractTarGz(archive, asIs, { strip: 0 });
+  assert.ok(kept.written.includes('owner-repo-abc123/README.md'), 'release tarballs keep their top folder');
 });
 
 test('resolveFile honours routes, directories, SPA fallback and stays inside root', async () => {
