@@ -48,7 +48,10 @@ function parseOctal(buf) {
 // GitHub repository tarball, whose single top folder is named owner-repo-sha; 0
 // for a release asset). `subdir` then keeps only entries under that path and
 // re-roots them, so `site/index.html` lands at `dest/index.html`.
-export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1 } = {}) {
+// `modes` keeps the executable bit and `symlinks` recreates symbolic links whose
+// target stays inside `dest`: both are needed for a runtime such as Python, and
+// neither is wanted for a repository tree served as a website.
+export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1, modes = false, symlinks = false } = {}) {
   const written = [];
   const skipped = [];
   const wanted = subdir.replace(/^\/+|\/+$/g, '');
@@ -57,6 +60,7 @@ export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1 }
   let pending = Buffer.alloc(0);
   let longName = null;
   let paxPath = null;
+  let paxLink = null;
   let current = null; // { name, size, remaining, fd, target }
 
   const finishCurrent = async () => {
@@ -77,26 +81,48 @@ export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1 }
       name = paxPath;
       paxPath = null;
     }
+    let linkName = header.subarray(157, 257).toString('utf8').replace(/\0.*$/s, '');
+    if (paxLink !== null) {
+      linkName = paxLink;
+      paxLink = null;
+    }
     const size = parseOctal(header.subarray(124, 136));
+    const mode = parseOctal(header.subarray(100, 108));
     const entry = { name, size, remaining: size, typeflag, target: null, collect: null };
-    if (typeflag === 'L') entry.collect = 'longName';
-    else if (typeflag === 'x') entry.collect = 'pax';
-    else if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
+    const relative = () => {
       const parts = name.split('/').filter(Boolean).slice(strip);
       let rel = parts.join('/');
       if (wanted) {
-        if (rel !== wanted && !rel.startsWith(wanted + '/')) return entry; // not under subdir
+        if (rel !== wanted && !rel.startsWith(wanted + '/')) return null; // not under subdir
         rel = rel.slice(wanted.length + 1);
-        if (!rel) return entry;
       }
+      return rel || null;
+    };
+    if (typeflag === 'L') entry.collect = 'longName';
+    else if (typeflag === 'x') entry.collect = 'pax';
+    else if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
+      const rel = relative();
+      if (!rel) return entry;
       const target = safeJoin(dest, rel);
       if (!target) {
         skipped.push(name);
         return entry;
       }
       await fs.mkdir(path.dirname(target), { recursive: true });
-      entry.handle = await fs.open(target, 'w');
+      entry.handle = await fs.open(target, 'w', modes && mode & 0o111 ? 0o755 : 0o644);
       entry.target = rel;
+    } else if (typeflag === '2' && symlinks) {
+      const rel = relative();
+      const target = rel && safeJoin(dest, rel);
+      const pointsTo = target && safeJoin(dest, path.join(path.dirname(rel), linkName));
+      if (!target || !pointsTo || path.isAbsolute(linkName)) {
+        skipped.push(name);
+        return entry;
+      }
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.rm(target, { force: true });
+      await fs.symlink(linkName, target);
+      written.push(rel);
     }
     return entry;
   };
@@ -128,6 +154,8 @@ export async function extractTarGz(archivePath, dest, { subdir = '', strip = 1 }
           const text = current.buffer?.toString('utf8') ?? '';
           const match = text.match(/^\d+ path=(.*)$/m);
           if (match) paxPath = match[1];
+          const link = text.match(/^\d+ linkpath=(.*)$/m);
+          if (link) paxLink = link[1];
         }
         if (current.target) written.push(current.target);
         await finishCurrent();

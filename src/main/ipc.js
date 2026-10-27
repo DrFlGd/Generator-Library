@@ -18,6 +18,10 @@ const CHANNELS = {
   'shell:openFolder': 'openFolder',
   'webmirror:snapshots': 'webmirrorSnapshots',
   'webmirror:open': 'openSnapshot',
+  'runtimes:install': 'installRuntime',
+  'runtimes:remove': 'removeRuntime',
+  'jobs:list': 'jobs',
+  'jobs:clear': 'clearJobs',
 };
 
 export function registerIpc(services, getWindow) {

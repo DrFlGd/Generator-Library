@@ -43,7 +43,7 @@ export async function findPython(configured = '', { spawnImpl = spawn } = {}) {
     const ok = await new Promise((resolve) => {
       let child;
       try {
-        child = spawnImpl(candidate, ['-c', 'import webmirror'], { stdio: 'ignore' });
+        child = spawnImpl(candidate, ['-c', 'import webmirror'], { stdio: 'ignore', windowsHide: true });
       } catch {
         resolve(false);
         return;
@@ -73,14 +73,16 @@ export function parseMirrorOutput(lines) {
   return { messages, result };
 }
 
-export async function mirrorSite({ url, githubPagesFiles = false, browserCapture = true, home = '', python = '', onProgress = () => {}, spawnImpl = spawn }) {
-  const interpreter = await findPython(python, { spawnImpl });
+// `interpreter` is a Python the caller already knows can import webmirror (the
+// library's runtime manager provides one); without it, PATH is searched.
+export async function mirrorSite({ url, githubPagesFiles = false, browserCapture = true, home = '', python = '', interpreter: given = '', onProgress = () => {}, spawnImpl = spawn }) {
+  const interpreter = given || (await findPython(python, { spawnImpl }));
   if (!interpreter) {
     throw new Error('WebMirror is not available: install Python 3.10+ and `pip install git+https://github.com/DrFlGd/WebMirror`, or set the Python path in Settings.');
   }
   const args = JSON.stringify({ url, githubPagesFiles, browserCapture, home: home || defaultWebMirrorHome() });
   return new Promise((resolve, reject) => {
-    const child = spawnImpl(interpreter, ['-c', MIRROR_SCRIPT, args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawnImpl(interpreter, ['-c', MIRROR_SCRIPT, args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     let buffer = '';
     let result = null;
     let stderr = '';
