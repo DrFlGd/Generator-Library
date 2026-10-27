@@ -442,6 +442,7 @@ function renderSettings() {
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
   form.keepVersions.value = String(s.keepVersions ?? 2);
   renderRuntimes();
+  renderDataLocation();
   call('webmirrorSnapshots')
     .then((snaps) => {
       const ul = $('snapshots-list');
@@ -455,18 +456,62 @@ function renderSettings() {
     .catch(() => {});
 }
 
+const LOCATION_NOTES = {
+  portable: 'Beside the app, so the app and its library move together.',
+  custom: 'A folder you chose.',
+  legacy: "In this computer's app-data folder, from an earlier version of the library.",
+  default: "In this computer's app-data folder.",
+};
+
+function renderDataLocation() {
+  const loc = state.data.dataLocation;
+  if (!loc) return;
+  const busy = state.jobs.some((j) => j.status === 'running');
+  const move = async (dir) => {
+    if (!dir) return;
+    if (!window.confirm(`Move the library to ${dir}?\n\nOpen app windows close, everything is copied, and the library restarts there. The old folder is deleted after the restart.`)) return;
+    try {
+      await call('moveData', { dir });
+      setStatus('Moving the library; it restarts when the copy is done…');
+    } catch (error) {
+      setStatus(error.message, 'error');
+    }
+  };
+  $('data-location').replaceChildren(
+    el('p', {}, el('code', {}, loc.dir)),
+    el('p', { class: 'muted' }, LOCATION_NOTES[loc.mode] ?? ''),
+    el(
+      'div',
+      { class: 'row row-tight' },
+      el('button', { class: 'btn btn-small', type: 'button', disabled: busy, onclick: async () => move(await call('chooseDataFolder')) }, 'Move to another folder…'),
+      loc.suggested ? el('button', { class: 'btn btn-small btn-primary', type: 'button', disabled: busy, onclick: () => move(loc.suggested) }, 'Move beside the app') : null,
+    ),
+  );
+}
+
 function renderRuntimes() {
-  const { python } = state.data.runtimes;
+  const { python, node } = state.data.runtimes;
   const box = $('runtimes');
   const running = state.jobs.some((j) => j.kind === 'runtime' && j.status === 'running');
-  const runtimeAction = (label, name) =>
-    el('button', { class: 'btn btn-small', type: 'button', disabled: running, onclick: () => call(name).catch((e) => setStatus(e.message, 'error')).finally(() => reloadState()) }, label);
+  const runtimeAction = (label, name, runtime = 'python') =>
+    el('button', { class: 'btn btn-small', type: 'button', disabled: running, onclick: () => call(name, { runtime }).catch((e) => setStatus(e.message, 'error')).finally(() => reloadState()) }, label);
   let line;
   if (python.configured) line = el('span', {}, 'Using your Python: ', el('code', {}, python.configured));
   else if (python.managed) line = el('span', {}, `Python ${python.managed.version}`, python.managed.packages.length ? ` with ${python.managed.packages.map((p) => p.split(/[\s@[]/)[0]).join(', ')}` : '', el('small', { class: 'muted' }, ` · ${python.managed.dir}`));
   else line = el('span', { class: 'muted' }, `Not installed. Python ${python.build} downloads automatically the first time a generator needs it.`);
+  // replaceChildren writes a null as the text "null"; filter(Boolean) drops the missing Node row.
   box.replaceChildren(
-    el('li', {}, line, el('div', { class: 'row row-tight' }, python.configured ? null : runtimeAction(python.managed ? 'Repair' : 'Install now', 'installRuntime'), python.managed && !python.configured ? runtimeAction('Remove', 'removeRuntime') : null)),
+    ...[el('li', {}, line, el('div', { class: 'row row-tight' }, python.configured ? null : runtimeAction(python.managed ? 'Repair' : 'Install now', 'installRuntime'), python.managed && !python.configured ? runtimeAction('Remove', 'removeRuntime') : null)),
+    node
+      ? el(
+          'li',
+          {},
+          node.managed
+            ? el('span', {}, `Node.js ${node.managed.version}`, el('small', { class: 'muted' }, ` · ${node.managed.dir}`))
+            : el('span', { class: 'muted' }, `Node.js ${node.build} is not installed. It downloads automatically the first time an app is built from source.`),
+          el('div', { class: 'row row-tight' }, runtimeAction(node.managed ? 'Repair' : 'Install now', 'installRuntime', 'node'), node.managed ? runtimeAction('Remove', 'removeRuntime', 'node') : null),
+        )
+      : null].filter(Boolean),
   );
 }
 
@@ -520,7 +565,10 @@ function setJobs(list) {
   renderJobsButton();
   if ($('jobs').open) renderJobs();
   if ($('detail').open) renderDetail();
-  if ($('settings').open) renderRuntimes();
+  if ($('settings').open) {
+    renderRuntimes();
+    renderDataLocation();
+  }
   // A job that fails while its row is not on screen still has to be noticed.
   const failed = list.find((j) => j.status === 'failed' && before.get(j.id) === 'running');
   if (failed && !$('detail').open) setStatus(`${failed.title} failed: ${failed.error}`, 'error');

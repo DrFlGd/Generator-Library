@@ -26,6 +26,21 @@ export function sourceKey(source) {
   return source.repo || source.url || '';
 }
 
+// Records hold absolute paths. When the data folder has moved (Settings, or a
+// portable drive that came back under another letter), every path under the old
+// folder is rewritten under the new one.
+export function rebasePaths(value, from, to) {
+  const sameRoot = (p) => (process.platform === 'win32' ? p.toLowerCase() : p);
+  const prefix = sameRoot(from.endsWith(path.sep) ? from : from + path.sep);
+  const walk = (v) => {
+    if (typeof v === 'string') return sameRoot(v).startsWith(prefix) || sameRoot(v) === sameRoot(from) ? path.join(to, v.slice(from.length)) : v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(value);
+}
+
 export function emptyState() {
   return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {} };
 }
@@ -48,6 +63,12 @@ export class Library {
     } catch {
       this.state = emptyState();
     }
+    if (this.state.root && this.state.root !== this.dataDir) {
+      for (const key of ['installed', 'kept', 'runtimes']) this.state[key] = rebasePaths(this.state[key], this.state.root, this.dataDir);
+      this.state.root = this.dataDir;
+      await this.save();
+    }
+    this.state.root = this.dataDir;
     return this.state;
   }
 

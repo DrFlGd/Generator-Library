@@ -115,7 +115,7 @@
       </label>
       <label>
         <span>WebMirror home</span>
-        <input name="webmirrorHome" type="text" placeholder="~/.webmirror" />
+        <input name="webmirrorHome" type="text" placeholder="Inside the library folder" />
       </label>
       <label>
         <span>Older versions to keep</span>
@@ -131,8 +131,13 @@
       </div>
     </form>
     <section class="settings-sources">
+      <h3>Library folder</h3>
+      <p class="muted">Installed apps, their saved data, Python, Node.js and mirrors all live here. Move it to an external drive to take the whole library with you.</p>
+      <div id="data-location"></div>
+    </section>
+    <section class="settings-sources">
       <h3>Dependencies</h3>
-      <p class="muted">Installed privately for the library, never system-wide. Mirroring a site needs Python and WebMirror.</p>
+      <p class="muted">Installed privately for the library, never system-wide. Mirroring a site needs Python and WebMirror; building an app from its source needs Node.js.</p>
       <ul id="runtimes" class="sources"></ul>
     </section>
     <section class="settings-sources">

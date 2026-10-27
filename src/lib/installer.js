@@ -75,7 +75,21 @@ function entryUnderExtracted(dir, written, preferred) {
   return html.find((f) => path.basename(f).toLowerCase() === 'index.html') ?? html[0];
 }
 
-export async function installDistribution(manifest, dist, { library, github, onProgress = () => {}, tag, keep } = {}) {
+// Every file under `dir`, as forward-slash paths relative to it.
+async function listFiles(dir, prefix = '') {
+  const out = [];
+  for (const entry of await fs.readdir(path.join(dir, prefix), { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...(await listFiles(dir, rel)));
+    else out.push(rel);
+  }
+  return out;
+}
+
+// `builder(dir, build, { onLine })` builds an unpacked repository for a
+// distribution with `build` and returns its output folder (build.js buildProject,
+// given the private Node.js by the caller).
+export async function installDistribution(manifest, dist, { library, github, onProgress = () => {}, tag, keep, builder } = {}) {
   const distKey = distributionKey(dist);
   onProgress({ phase: 'resolve', message: tag ? `Looking up ${tag} on GitHub` : 'Looking up the latest build on GitHub' });
   const latest = await resolveLatest(manifest, dist, github, { tag });
@@ -111,7 +125,22 @@ export async function installDistribution(manifest, dist, { library, github, onP
   try {
     onProgress({ phase: 'unpack', message: 'Unpacking' });
     const lower = downloadName.toLowerCase();
-    if (latest.type === 'repo') {
+    if (latest.type === 'repo' && dist.build) {
+      if (!builder) throw new Error('Building from source is not available here');
+      const sourceDir = `${finalDir}.source`;
+      await fs.rm(sourceDir, { recursive: true, force: true });
+      try {
+        await extractTarGz(downloadPath, sourceDir, { subdir: latest.path });
+        onProgress({ phase: 'build', message: 'Building from source' });
+        const output = await builder(sourceDir, dist.build, { onLine: (line) => onProgress({ phase: 'build', message: line }) });
+        await fs.rm(stagingDir, { recursive: true, force: true });
+        await fs.rename(output, stagingDir);
+      } finally {
+        await fs.rm(sourceDir, { recursive: true, force: true });
+      }
+      record.entry = entryUnderExtracted(stagingDir, await listFiles(stagingDir), dist.entry);
+      record.built = true;
+    } else if (latest.type === 'repo') {
       const { written } = await extractTarGz(downloadPath, stagingDir, { subdir: latest.path });
       if (dist.kind === 'bundle') record.entry = entryUnderExtracted(stagingDir, written, dist.entry);
       else record.exec = dist.exec;

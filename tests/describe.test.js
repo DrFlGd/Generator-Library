@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assetGlob, classifyAsset, describeProject, describeRepo, describeUrl, pagesUrl, parseProjectInput, releaseDistributions, slugify, tagGlob } from '../src/lib/describe.js';
+import { assetGlob, classifyAsset, describeProject, describeRepo, describeUrl, inferBuild, pagesUrl, parseProjectInput, releaseDistributions, slugify, tagGlob } from '../src/lib/describe.js';
 import { normalizeManifest } from '../src/lib/manifest.js';
 import { Library } from '../src/lib/library.js';
 import { stablePorts } from '../src/lib/server.js';
@@ -141,4 +141,20 @@ test('library remembers hidden projects and removed sources', async () => {
   await reloaded.setHidden('printkit', false);
   assert.deepEqual(reloaded.state.sources, [{ repo: 'drflgd/thing' }]);
   assert.deepEqual(reloaded.state.hidden, []);
+});
+
+test('describeRepo builds a web app from source rather than mirroring it', async () => {
+  const info = { fullName: 'o/tool', description: '', topics: [], license: '', homepage: 'https://tool.example/', hasPages: false, parent: '' };
+  const files = { 'package.json': { scripts: { build: 'tsc && vite build' }, devDependencies: { vite: '^8' } } };
+  const found = await describeRepo('o/tool', fakeGithub({ info, files }));
+  assert.deepEqual(found.raw.distributions.map((d) => d.kind), ['web', 'bundle']);
+  assert.deepEqual(found.raw.distributions[1].build, { output: 'dist', steps: [['npm', 'run', 'build', '--', '--base', './']] });
+  assert.deepEqual(normalizeManifest(found.raw, { repo: 'o/tool' }).errors, []);
+  const plain = await describeRepo('o/tool', fakeGithub({ info, files: { 'package.json': { scripts: { test: 'x' } } } }));
+  assert.deepEqual(plain.raw.distributions.map((d) => d.kind), ['web', 'mirror'], 'no build script: mirror');
+});
+
+test('inferBuild reads the build output from the tooling', () => {
+  assert.equal(inferBuild(null), null);
+  assert.deepEqual(inferBuild({ scripts: { build: 'react-scripts build' }, dependencies: { 'react-scripts': '5' } }), { output: 'build', steps: [['npm', 'run', 'build']] });
 });

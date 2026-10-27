@@ -69,8 +69,9 @@ function normalizeFrom(raw, errors, where) {
 }
 
 // Normalize a manifest's `requires` list. Each entry names a runtime and what to
-// install into it; package strings are pip requirement specs, objects may add the
-// module to import as the "is it there" check.
+// install into it. For python, package strings are pip requirement specs, objects
+// may add the module to import as the "is it there" check. node needs nothing
+// more; it is what builds from source run in (normalizeBuild).
 export function normalizeRequires(raw, errors = [], where = 'requires') {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
@@ -79,8 +80,12 @@ export function normalizeRequires(raw, errors = [], where = 'requires') {
   }
   const out = [];
   raw.forEach((item, i) => {
+    if (item && typeof item === 'object' && item.runtime === 'node') {
+      out.push({ runtime: 'node' });
+      return;
+    }
     if (!item || typeof item !== 'object' || item.runtime !== 'python') {
-      errors.push(`${where}[${i}]: "runtime" must be "python"`);
+      errors.push(`${where}[${i}]: "runtime" must be "python" or "node"`);
       return;
     }
     const packages = (Array.isArray(item.packages) ? item.packages : []).map((p) => (typeof p === 'string' ? { spec: p.trim() } : { spec: String(p?.spec ?? '').trim(), import: typeof p?.import === 'string' ? p.import.trim() : undefined })).filter((p) => p.spec);
@@ -93,14 +98,50 @@ export function normalizeRequires(raw, errors = [], where = 'requires') {
 export function mergeRequires(...lists) {
   const packages = new Map();
   let python = false;
+  let node = false;
   for (const list of lists) {
     for (const req of list ?? []) {
+      if (req.runtime === 'node') node = true;
       if (req.runtime !== 'python') continue;
       python = true;
       for (const p of req.packages) if (!packages.has(p.spec)) packages.set(p.spec, p);
     }
   }
-  return python ? [{ runtime: 'python', packages: [...packages.values()] }] : [];
+  const out = python ? [{ runtime: 'python', packages: [...packages.values()] }] : [];
+  if (node) out.push({ runtime: 'node' });
+  return out;
+}
+
+// What builds a web app from its repository: install its npm dependencies, run
+// `steps` with the library's private Node.js, and host the `output` folder.
+// Steps are argument lists starting with npm, npx or node, so they run the same
+// on every platform without a shell. Dependency install scripts stay off unless
+// `installScripts` is true.
+export const BUILD_TOOLS = ['npm', 'npx', 'node'];
+
+function normalizeBuild(raw, errors, where) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    errors.push(`${where}: "build" must be an object`);
+    return null;
+  }
+  const output = str(raw.output).replace(/^\/+|\/+$/g, '') || 'dist';
+  if (output.split('/').includes('..')) errors.push(`${where}: "build.output" may not contain ".."`);
+  let steps = [['npm', 'run', 'build']];
+  if (raw.steps !== undefined) {
+    if (!Array.isArray(raw.steps) || !raw.steps.length || !raw.steps.every((step) => Array.isArray(step) && step.length && step.every((a) => typeof a === 'string'))) {
+      errors.push(`${where}: "build.steps" must be a list of argument lists`);
+    } else if (!raw.steps.every((step) => BUILD_TOOLS.includes(step[0]))) {
+      errors.push(`${where}: each build step must start with ${BUILD_TOOLS.join(', ')}`);
+    } else {
+      steps = raw.steps.map((step) => [...step]);
+    }
+  }
+  const env = {};
+  if (raw.env !== undefined) {
+    if (!raw.env || typeof raw.env !== 'object' || Array.isArray(raw.env)) errors.push(`${where}: "build.env" must be an object`);
+    else for (const [k, v] of Object.entries(raw.env)) if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) env[k] = String(v);
+  }
+  return { output, steps, env, installScripts: raw.installScripts === true };
 }
 
 function normalizeDistribution(raw, index, errors) {
@@ -145,7 +186,15 @@ function normalizeDistribution(raw, index, errors) {
     dist.from = normalizeFrom(raw.from, errors, where);
     dist.entry = str(raw.entry).replace(/^\/+/, '') || 'index.html';
     dist.spa = raw.spa === true;
-    dist.label ||= 'Install offline copy';
+    if (raw.build !== undefined) {
+      const build = normalizeBuild(raw.build, errors, where);
+      if (dist.from && dist.from.type !== 'repo') errors.push(`${where}: "build" needs a repo "from"`);
+      if (build) {
+        dist.build = build;
+        dist.requires = mergeRequires(dist.requires, [{ runtime: 'node' }]);
+      }
+    }
+    dist.label ||= dist.build ? 'Build offline copy' : 'Install offline copy';
   } else if (kind === 'exe') {
     // A standalone executable. `install` says what the downloaded asset is:
     //   portable   run the file directly

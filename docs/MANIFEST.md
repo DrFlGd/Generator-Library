@@ -69,6 +69,20 @@ The library downloads the files, keeps them under its own folder and serves them
 
 Updates: release bundles update when a newer release carries a matching asset; repository bundles update when the branch moves.
 
+#### Building from source
+
+A web app that publishes no build can be built on the user's computer from its repository:
+
+```json
+{ "kind": "bundle", "from": { "type": "repo" },
+  "build": { "output": "dist", "steps": [["npx", "vite", "build"]], "env": {}, "installScripts": false },
+  "spa": true }
+```
+
+The library downloads the repository, installs its npm dependencies with its own private Node.js (`npm ci`, or `npm install` when the lock file is out of date), runs each step, and hosts the `output` folder. Steps are argument lists that start with `npm`, `npx` or `node`, so they run the same on Windows, macOS and Linux without a shell; the default is `[["npm", "run", "build"]]`. Calling the bundler directly (`npx vite build`) skips type checks and shell syntax such as `NODE_ENV=production` in package scripts, which Windows does not understand; put variables in `env` instead. Dependency install scripts are skipped unless `installScripts` is `true`. The Node.js runtime is added to `requires` automatically.
+
+Prefer a build from source over a `mirror`: a mirror only has what the page loaded while it was captured, so engines and assets loaded on demand are missing, and some sites refuse to be crawled.
+
 ### `exe`: install a standalone executable
 
 ```json
@@ -96,7 +110,7 @@ For generators that have no downloadable build yet. The library runs [WebMirror]
 ]
 ```
 
-Before installing or launching, the library makes sure each runtime is there, privately in its own data folder, never system-wide. `python` is a [python-build-standalone](https://github.com/astral-sh/python-build-standalone) CPython 3.12 checked against its published SHA-256, and `packages` are pip requirement specs installed into it once. Prefer archive URLs to `git+https://` so the user does not need git. Give `import` when the module name differs from the package, so the library can check a Python the user set in Settings. Progress and errors show in the Jobs panel.
+Before installing or launching, the library makes sure each runtime is there, privately in its own data folder, never system-wide. `node` is the official Node.js build (24 LTS) with npm, also checksum-verified, and is what builds from source run in; it needs no `packages`. `python` is a [python-build-standalone](https://github.com/astral-sh/python-build-standalone) CPython 3.12 checked against its published SHA-256, and `packages` are pip requirement specs installed into it once. Prefer archive URLs to `git+https://` so the user does not need git. Give `import` when the module name differs from the package, so the library can check a Python the user set in Settings. Progress and errors show in the Jobs panel.
 
 ## Collections
 
@@ -119,11 +133,13 @@ Entries are either `{ "path": … }` pointing at a `generator.json` inside the r
 
 ## How the library finds manifests
 
-`catalog/catalog.json` in this repository lists the repositories to read. For each one the library fetches `generator.json`, then `generator-library.json`, from the default branch. Each catalog entry also carries a `fallback`: a snapshot of that manifest (collections with their entries inlined) that is used only when the repository cannot be read, so the library still shows everything offline, for a private repository without a token, or for a repository that has no manifest yet. What the repository publishes always wins; `npm run sync:fallbacks` refreshes the snapshots. An entry can additionally carry an `overlay`, a manifest merged over the result, which is how a fork can point at its upstream's releases. Anyone can add further repositories, or plain website links, under **Manage → Add a project** in the app. A repository with no manifest is described from its homepage or Pages site (online and mirror) and its newest release's assets (bundles for `*web*`/`*site*`/`*dist*` zips, executables by extension and platform name); publishing a `generator.json` gives full control.
+`catalog/catalog.json` in this repository lists the repositories to read. For each one the library fetches `generator.json`, then `generator-library.json`, from the default branch. Each catalog entry also carries a `fallback`: a snapshot of that manifest (collections with their entries inlined) that is used only when the repository cannot be read, so the library still shows everything offline, for a private repository without a token, or for a repository that has no manifest yet. What the repository publishes always wins; `npm run sync:fallbacks` refreshes the snapshots. An entry can additionally carry an `overlay`, a manifest merged over the result, which is how a fork can point at its upstream's releases. Anyone can add further repositories, or plain website links, under **Manage → Add a project** in the app. A repository with no manifest is described from its homepage or Pages site (online), its newest release's assets (bundles for `*web*`/`*site*`/`*dist*` zips, executables by extension and platform name), and, when no release has a bundle, a build from source if its `package.json` has a build script; only failing all of those is the site mirrored. Publishing a `generator.json` gives full control.
+
+For agents adding a manifest to a repository, [AGENT-GUIDE.md](AGENT-GUIDE.md) is a step-by-step version of this page.
 
 ## Checklist for a repository
 
 1. Add `generator.json` (or `generator-library.json`) at the root.
-2. Make sure the web build uses relative asset paths and publish it as a release asset (`<id>-web-<version>.zip`) if you want an offline copy without WebMirror.
+2. Make sure the web build uses relative asset paths and publish it as a release asset (`<id>-web-<version>.zip`) for the fastest offline install, or describe a `build` so the library builds it from source. Use `mirror` only for sites with no source to build.
 3. If there is a desktop build, publish it as a **GitHub release** rather than only a workflow artifact; artifacts expire and need a login to download.
 4. Use a stable tag pattern per build type (`v*` for web, `desktop-v*` for desktop) so the manifest can tell them apart.

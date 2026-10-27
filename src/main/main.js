@@ -4,16 +4,40 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, shell, session } from 'electron';
+import { app, BrowserWindow, dialog, shell, session } from 'electron';
 import { Library } from '../lib/library.js';
 import { createServices } from './services.js';
 import { registerIpc } from './ipc.js';
+import { finishMove, resolveLocation } from './location.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rendererDir = path.join(here, '..', 'renderer');
 
 let mainWindow = null;
 let services = null;
+
+// Pick the data folder before Chromium starts, so its profile (what app windows
+// save) lands there too. A move started in Settings finishes here.
+const location = resolveLocation({ appData: app.getPath('userData') });
+try {
+  finishMove(location);
+} catch (error) {
+  console.error('Could not finish moving the library:', error);
+}
+app.setPath('userData', location.profileDir);
+
+// Start again after the library has moved. A portable exe runs from a temporary
+// copy that is deleted when it exits, so relaunch the real file.
+function relaunch() {
+  const execPath = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE;
+  app.relaunch(execPath ? { execPath } : undefined);
+  app.exit(0);
+}
+
+async function chooseFolder({ title = 'Choose a folder', defaultPath } = {}) {
+  const result = await dialog.showOpenDialog(mainWindow, { title, defaultPath, properties: ['openDirectory', 'createDirectory'] });
+  return result.canceled ? '' : result.filePaths[0] ?? '';
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -93,9 +117,9 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
     callback(['clipboard-read', 'clipboard-sanitized-write', 'fullscreen'].includes(permission));
   });
-  const library = new Library(path.join(app.getPath('userData'), 'library'));
+  const library = new Library(location.libraryDir);
   await library.load();
-  services = createServices({ library, app, openGeneratorWindow, openExternal, shell });
+  services = createServices({ library, app, openGeneratorWindow, openExternal, shell, location, relaunch, chooseFolder });
   registerIpc(services, () => mainWindow);
   createMainWindow();
   app.on('activate', () => {
