@@ -3,11 +3,14 @@
 //
 // A record looks like:
 //   { id, distKey, kind, install?, version, source: { type, repo, tag?|ref?, sha?, asset? },
-//     dir, entry?|exec?, installedAt, sizeBytes }
+//     dir, entry?|exec?, installedAt, sizeBytes, pinned? }
 //
 // `version` is whatever identifies the installed build on GitHub: the release tag
 // for release assets, the commit sha for repository trees. The updater only has to
 // compare that string with the newest one GitHub reports.
+//
+// Each version installs into its own folder. The newest install launches; the
+// one it replaced is kept (library.activate) so the user can switch back.
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -38,12 +41,14 @@ async function replaceDir(stagingDir, finalDir) {
 }
 
 // Resolve what the newest available build of a distribution is, without
-// downloading it. Used both before an install and by the update check.
-export async function resolveLatest(manifest, dist, github) {
+// downloading it. Used both before an install and by the update check. `tag`
+// picks one exact release instead of the newest (the version picker).
+export async function resolveLatest(manifest, dist, github, { tag } = {}) {
   const from = dist.from;
   const repo = from.repo || manifest.repo;
   if (from.type === 'release') {
-    const { release, asset } = await github.resolveReleaseAsset(repo, { tag: from.tag, asset: from.asset, prerelease: from.prerelease });
+    const wanted = tag ? { tag, asset: from.asset, prerelease: true } : { tag: from.tag, asset: from.asset, prerelease: from.prerelease };
+    const { release, asset } = await github.resolveReleaseAsset(repo, wanted);
     return {
       type: 'release',
       repo,
@@ -70,15 +75,14 @@ function entryUnderExtracted(dir, written, preferred) {
   return html.find((f) => path.basename(f).toLowerCase() === 'index.html') ?? html[0];
 }
 
-export async function installDistribution(manifest, dist, { library, github, onProgress = () => {} }) {
+export async function installDistribution(manifest, dist, { library, github, onProgress = () => {}, tag, keep } = {}) {
   const distKey = distributionKey(dist);
-  const finalDir = library.installDir(manifest.id, distKey);
+  onProgress({ phase: 'resolve', message: tag ? `Looking up ${tag} on GitHub` : 'Looking up the latest build on GitHub' });
+  const latest = await resolveLatest(manifest, dist, github, { tag });
+  const finalDir = library.versionDir(manifest.id, distKey, latest.version);
   const stagingDir = `${finalDir}.staging`;
   await fs.rm(stagingDir, { recursive: true, force: true });
   await fs.mkdir(stagingDir, { recursive: true });
-
-  onProgress({ phase: 'resolve', message: 'Looking up the latest build on GitHub' });
-  const latest = await resolveLatest(manifest, dist, github);
 
   const downloadName = latest.type === 'release' ? latest.asset : `${manifest.id}-${latest.sha.slice(0, 12)}.tar.gz`;
   const downloadPath = path.join(library.downloadsDir, `${manifest.id}-${Date.now()}-${downloadName}`);
@@ -95,12 +99,14 @@ export async function installDistribution(manifest, dist, { library, github, onP
     kind: dist.kind,
     install: dist.install,
     version: latest.version,
+    publishedAt: latest.publishedAt ?? '',
     source: latest.type === 'release'
       ? { type: 'release', repo: latest.repo, tag: latest.tag, asset: latest.asset }
       : { type: 'repo', repo: latest.repo, ref: latest.ref, sha: latest.sha, path: latest.path },
     dir: finalDir,
     installedAt: new Date().toISOString(),
   };
+  if (tag) record.pinned = true;
 
   try {
     onProgress({ phase: 'unpack', message: 'Unpacking' });
@@ -130,7 +136,8 @@ export async function installDistribution(manifest, dist, { library, github, onP
 
     await replaceDir(stagingDir, finalDir);
     record.sizeBytes = await dirSize(finalDir);
-    await library.setInstalled(record);
+    const dropped = await library.activate(record, { keep });
+    for (const old of dropped) if (old.dir !== finalDir) await fs.rm(old.dir, { recursive: true, force: true });
     onProgress({ phase: 'done', message: 'Installed' });
     return record;
   } finally {
@@ -152,9 +159,17 @@ function findExecutable(written, preferred) {
   );
 }
 
+// Removes the installed version and every kept one.
 export async function uninstallDistribution(record, { library }) {
-  await fs.rm(record.dir, { recursive: true, force: true });
+  for (const r of [record, ...library.keptFor(record.id, record.distKey)]) await fs.rm(r.dir, { recursive: true, force: true });
   await library.removeInstalled(record.id, record.distKey);
+}
+
+// Delete one kept version.
+export async function removeVersion(id, distKey, version, { library }) {
+  const record = await library.removeKept(id, distKey, version);
+  if (record) await fs.rm(record.dir, { recursive: true, force: true });
+  return Boolean(record);
 }
 
 // Compare an installed record with GitHub. Returns { hasUpdate, latest } where

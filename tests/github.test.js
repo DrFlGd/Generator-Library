@@ -82,6 +82,16 @@ test('resolveReleaseAsset picks the newest matching non-draft release that has t
   await assert.rejects(gh.resolveReleaseAsset('o/r', { tag: 'latest', asset: 'nope-*' }), /No release/);
 });
 
+test('matchingReleases lists every installable release, newest first', async () => {
+  const { fetchImpl } = fakeFetch({ '/repos/o/r/releases': releases });
+  const gh = createGitHub({ fetchImpl });
+  const stable = await gh.matchingReleases('o/r', { tag: 'desktop-v*', asset: 'Terrain-Press-*-Portable.exe' });
+  assert.deepEqual(stable.map((m) => m.release.tag), ['desktop-v1.18.0']);
+  const all = await gh.matchingReleases('o/r', { tag: 'desktop-v*', asset: 'Terrain-Press-*-Portable.exe', prerelease: true });
+  assert.deepEqual(all.map((m) => m.release.tag), ['desktop-v1.19.1', 'desktop-v1.18.0']);
+  assert.deepEqual(await gh.matchingReleases('o/r', { asset: 'nope-*' }), []);
+});
+
 test('latestCommit uses the default branch when no ref is given', async () => {
   const { fetchImpl } = fakeFetch({
     '/repos/o/r/commits/main': { sha: 'abc123', commit: { committer: { date: '2026-10-27T00:00:00Z' } } },

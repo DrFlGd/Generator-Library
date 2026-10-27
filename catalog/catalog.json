@@ -515,16 +515,18 @@
           ],
           "upstream": "andymai/gridfinity-layout-tool",
           "homepage": "https://gridfinitylayouttool.com",
-          "icon": "public/icons/icon-512.png"
+          "icon": "https://raw.githubusercontent.com/andymai/gridfinity-layout-tool/HEAD/public/icons/icon-512.png"
         },
         "generators": [
           {
             "id": "gridfinity-layout-tool",
             "name": "Gridfinity Layout Tool",
-            "summary": "Plan and design Gridfinity drawer organizer layouts for 3D printing, with a layout planner, 3D preview and print list.",
+            "summary": "Plan and design Gridfinity drawer organizer layouts for 3D printing, with a layout planner, bin designer, baseplate generator, 3D preview and print list.",
             "tags": [
               "layout",
-              "drawers"
+              "drawers",
+              "bins",
+              "baseplates"
             ],
             "distributions": [
               {
@@ -533,23 +535,22 @@
                 "label": "Open online"
               },
               {
-                "kind": "exe",
-                "platform": "windows",
-                "install": "installer",
-                "label": "Install Windows app",
+                "kind": "bundle",
+                "label": "Install offline copy",
                 "from": {
                   "type": "release",
-                  "tag": "desktop-v*",
-                  "asset": "*setup.exe"
+                  "tag": "upstream-v*",
+                  "asset": "gridfinity-layout-tool-web-*.zip"
                 },
-                "notes": "Offline installer with bundled WebView2. Cloud sharing and sign-in are unavailable offline."
+                "spa": true,
+                "notes": "Built from each upstream release. The Bins and Baseplate tabs are included; sign-in, sharing and community designs need the online site."
               }
             ]
           },
           {
             "id": "gridfinity-bin-designer",
             "name": "Gridfinity Bin Designer",
-            "summary": "Parametric Gridfinity bin generator with STL export.",
+            "summary": "Parametric Gridfinity bin generator with STL export. Offline, use the Bins tab of the Gridfinity Layout Tool's offline copy.",
             "tags": [
               "bins"
             ],
@@ -564,7 +565,7 @@
           {
             "id": "gridfinity-baseplate-generator",
             "name": "Gridfinity Baseplate Generator",
-            "summary": "3D-printable Gridfinity baseplates with automatic splitting and STL, STEP and 3MF export.",
+            "summary": "3D-printable Gridfinity baseplates with automatic splitting and STL, STEP and 3MF export. Offline, use the Baseplate tab of the Gridfinity Layout Tool's offline copy.",
             "tags": [
               "baseplates"
             ],

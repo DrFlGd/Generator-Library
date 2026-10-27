@@ -22,6 +22,7 @@ const state = {
   seenJobs: new Set(), // finished job ids the user has looked at in the jobs panel
   busy: new Set(),
   detailId: null,
+  versions: new Map(), // `${id}/${distKey}` -> { loading, list, error } while its version list is open
 };
 
 const $ = (id) => document.getElementById(id);
@@ -247,8 +248,10 @@ function renderDistribution(g, d) {
   if (d.url) metaParts.push(d.url);
   if (d.from?.type === 'release') metaParts.push(`GitHub release ${d.from.tag === 'latest' ? '(latest)' : d.from.tag} · ${d.from.asset}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
   if (d.from?.type === 'repo') metaParts.push(`Repository files${d.from.path ? ` under ${d.from.path}/` : ''}${d.from.ref ? ` at ${d.from.ref}` : ''}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
-  if (record) metaParts.push(`Installed ${record.version}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}`);
+  const kept = state.data.kept?.[rk] ?? [];
+  if (record) metaParts.push(`Installed ${record.version}${record.pinned ? ' (chosen version)' : ''}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}${kept.length ? ` · ${kept.length} other version${kept.length === 1 ? '' : 's'} kept` : ''}`);
   if (update?.hasUpdate) metaParts.push(`Update available: ${update.latest.version}`);
+  else if (update?.newer && update.pinned) metaParts.push(`Newest is ${update.latest.version}`);
   if (update?.error) metaParts.push(`Update check failed: ${update.error}`);
   if (d.notes) metaParts.push(d.notes);
   if (!usable) metaParts.push('Not for this computer');
@@ -276,11 +279,16 @@ function renderDistribution(g, d) {
   if (d.kind === 'bundle' || d.kind === 'exe') {
     if (record) {
       actions.push(act(d.kind === 'exe' && d.install === 'installer' ? 'Run installer' : 'Launch', 'launch', { primary: true }));
-      if (update?.hasUpdate) actions.push(act('Update', 'install'));
+      if (update?.hasUpdate || (update?.newer && update.pinned)) actions.push(act(`Update to ${update.latest.version}`, 'install'));
       actions.push(act('Folder', 'openFolder'), act('Remove', 'uninstall', { confirm: true }));
     } else {
       actions.push(act(d.label || 'Install', 'install', { primary: true }));
     }
+  }
+  const versioned = (d.kind === 'bundle' || d.kind === 'exe') && d.from?.type === 'release';
+  if (versioned) {
+    const open = state.versions.has(rk);
+    actions.push(el('button', { class: `btn btn-small ${open ? 'is-on' : ''}`, type: 'button', disabled: !usable, 'aria-expanded': String(open), onclick: () => toggleVersions(g, key) }, 'Versions'));
   }
 
   const node = el(
@@ -298,16 +306,82 @@ function renderDistribution(g, d) {
     ),
     el('div', { class: 'dist-actions' }, actions),
   );
-  return node;
+  return versioned && state.versions.has(rk) ? el('div', { class: 'dist-group' }, node, renderVersions(g, key)) : node;
 }
 
-async function perform(name, g, key) {
+// ─────────────────────────────── versions ────────────────────────────────
+
+async function loadVersions(g, key) {
+  const rk = recordKey(g.id, key);
+  state.versions.set(rk, { loading: true, list: state.versions.get(rk)?.list ?? [] });
+  renderDetail();
+  try {
+    state.versions.set(rk, { list: await call('versions', { id: g.id, distKey: key }) });
+  } catch (error) {
+    state.versions.set(rk, { list: [], error: error.message });
+  }
+  if (state.detailId === g.id) renderDetail();
+}
+
+function toggleVersions(g, key) {
+  const rk = recordKey(g.id, key);
+  if (state.versions.has(rk)) {
+    state.versions.delete(rk);
+    renderDetail();
+  } else {
+    loadVersions(g, key);
+  }
+}
+
+function renderVersions(g, key) {
+  const rk = recordKey(g.id, key);
+  const { loading, list = [], error } = state.versions.get(rk) ?? {};
+  const busy = state.busy.has(rk);
+  // Which versions are on disk comes from the latest state, so the list stays
+  // right after an install or switch without asking GitHub again.
+  const active = state.data.installed[rk]?.version;
+  const kept = new Set((state.data.kept?.[rk] ?? []).map((r) => r.version));
+  const rows = list.map((listed) => {
+    const v = { ...listed, active: listed.tag === active, kept: kept.has(listed.tag) };
+    const notes = [v.publishedAt ? new Date(v.publishedAt).toLocaleDateString() : '', v.size ? `${(v.size / 1048576).toFixed(1)} MB` : '', v.prerelease ? 'pre-release' : '', v.gone ? 'no longer on GitHub' : ''].filter(Boolean);
+    const buttons = [];
+    if (v.active) {
+      buttons.push(el('span', { class: 'badge badge-installed' }, 'Launches'));
+    } else if (v.kept) {
+      buttons.push(
+        el('button', { class: 'btn btn-small btn-primary', type: 'button', disabled: busy, onclick: () => perform('useVersion', g, key, { version: v.tag, pin: !v.newest }) }, 'Use this version'),
+        el('button', { class: 'btn btn-small', type: 'button', disabled: busy, onclick: () => window.confirm(`Delete ${v.tag} of ${g.name}?`) && perform('removeVersion', g, key, { version: v.tag }) }, 'Delete'),
+      );
+    } else {
+      // The newest goes in unpinned, like an update; an older one is pinned so update checks leave it be.
+      buttons.push(el('button', { class: 'btn btn-small', type: 'button', disabled: busy, onclick: () => perform('install', g, key, v.newest ? {} : { tag: v.tag }) }, 'Install and use'));
+    }
+    return el(
+      'li',
+      { class: `version ${v.active ? 'is-active' : ''}` },
+      el('div', { class: 'version-info' }, el('span', { class: 'version-tag' }, v.tag), v.newest ? el('span', { class: 'badge' }, 'Newest') : null, v.kept ? el('span', { class: 'badge' }, 'On this computer') : null, el('div', { class: 'dist-meta' }, notes.join(' · '))),
+      el('div', { class: 'dist-actions' }, buttons),
+    );
+  });
+  const keep = state.data.settings.keepVersions;
+  return el(
+    'div',
+    { class: 'versions' },
+    el('div', { class: 'dist-meta' }, `Each version installs into its own folder and keeps the same saved data. After an update the ${keep} newest older version${keep === 1 ? ' stays' : 's stay'} on this computer (Settings).`),
+    loading && !list.length ? el('div', { class: 'dist-meta' }, 'Reading releases from GitHub…') : null,
+    error ? el('div', { class: 'dist-error' }, error) : null,
+    !loading && !error && !list.length ? el('div', { class: 'dist-meta' }, 'No releases found.') : null,
+    rows.length ? el('ul', { class: 'version-list' }, rows) : null,
+  );
+}
+
+async function perform(name, g, key, extra = {}) {
   const rk = recordKey(g.id, key);
   state.busy.add(rk);
   renderDetail();
   try {
-    await call(name, { id: g.id, distKey: key });
-    if (name === 'install') state.updates.delete(rk);
+    await call(name, { id: g.id, distKey: key, ...extra });
+    if (name === 'install' || name === 'useVersion') state.updates.delete(rk);
     setStatus('');
   } catch (error) {
     setStatus(`${g.name}: ${error.message}`, 'error');
@@ -366,6 +440,7 @@ function renderSettings() {
   form.pythonPath.value = s.pythonPath;
   form.webmirrorHome.value = s.webmirrorHome;
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
+  form.keepVersions.value = String(s.keepVersions ?? 2);
   renderRuntimes();
   call('webmirrorSnapshots')
     .then((snaps) => {
@@ -460,6 +535,7 @@ $('settings-form').addEventListener('submit', async (event) => {
     pythonPath: form.pythonPath.value.trim(),
     webmirrorHome: form.webmirrorHome.value.trim(),
     checkUpdatesOnStart: form.checkUpdatesOnStart.checked,
+    keepVersions: Math.max(0, Math.min(20, Math.round(Number(form.keepVersions.value) || 0))),
   };
   if (!patch.githubToken) delete patch.githubToken; // keep the saved one
   try {
