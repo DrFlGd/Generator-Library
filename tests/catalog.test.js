@@ -21,7 +21,7 @@ test('an overlay patches what the repo publishes', async () => {
   assert.deepEqual(manifests[0].tags, ['a', 'b']);
 });
 
-test('a repo without a manifest falls back to the overlay, and reports when there is none', async () => {
+test('a repo without a manifest can be described by an overlay alone, and reports when there is none', async () => {
   const io = { readJson: files({}) };
   const withOverlay = await resolveSource({ repo: 'o/r', overlay: { id: 'g', name: 'G', distributions: [{ kind: 'web', url: 'https://g/' }] }, enabled: true }, io);
   assert.equal(withOverlay.manifests.length, 1);
@@ -29,6 +29,25 @@ test('a repo without a manifest falls back to the overlay, and reports when ther
   const without = await resolveSource({ repo: 'o/r', overlay: null, enabled: true }, io);
   assert.equal(without.manifests.length, 0);
   assert.match(without.problems[0].error, /no generator.json/);
+});
+
+test('a fallback is used only when the repo cannot be read, and an overlay still patches it', async () => {
+  const fallback = { id: 'g', name: 'Snapshot', distributions: [{ kind: 'web', url: 'https://old/' }] };
+  const offline = await resolveSource({ repo: 'o/r', fallback, overlay: null, enabled: true }, { readJson: async () => null });
+  assert.equal(offline.manifests[0].name, 'Snapshot');
+  assert.equal(offline.manifests[0].manifestPath, undefined);
+
+  const live = { id: 'g', name: 'Live', distributions: [{ kind: 'web', url: 'https://new/' }] };
+  const online = await resolveSource({ repo: 'o/r', fallback, overlay: null, enabled: true }, { readJson: files({ 'o/r/generator.json': live }) });
+  assert.equal(online.manifests[0].name, 'Live');
+  assert.equal(online.manifests[0].distributions[0].url, 'https://new/');
+
+  const patched = await resolveSource({ repo: 'o/r', fallback, overlay: { summary: 'patched' }, enabled: true }, { readJson: async () => null });
+  assert.equal(patched.manifests[0].name, 'Snapshot');
+  assert.equal(patched.manifests[0].summary, 'patched');
+
+  const { catalog } = normalizeCatalog({ version: 1, sources: [{ repo: 'o/r', fallback }] });
+  assert.deepEqual(catalog.sources[0].fallback, fallback);
 });
 
 test('collections expand path entries from the repo', async () => {

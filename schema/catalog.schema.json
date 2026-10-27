@@ -16,6 +16,7 @@
         "properties": {
           "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
           "manifest": { "type": "string", "description": "Path of the manifest in the repository. Default: generator.json, then generator-library.json, at the root." },
+          "fallback": { "type": "object", "description": "A snapshot of the repository's manifest (collections with their entries inlined), used only when the repository cannot be read. Refresh with `npm run sync:fallbacks`." },
           "overlay": { "type": "object", "description": "A generator or collection manifest merged over what the repository publishes (overlay wins)." },
           "overlayOnly": { "type": "boolean", "description": "Do not read the repository; use the overlay alone." },
           "enabled": { "type": "boolean", "default": true },

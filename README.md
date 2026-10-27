@@ -20,7 +20,7 @@ For private repositories or heavy use, add a GitHub token under **Settings** (fi
 
 ## Adding a generator
 
-Put a [`generator.json`](docs/MANIFEST.md) in the generator's repository and either add the repository to [`catalog/catalog.json`](catalog/catalog.json) here (reaches everyone on the next refresh) or add it under **Settings → Your repositories** in the app (just you). Repositories that do not have a manifest yet can be described directly in the catalog with an `overlay`.
+Put a [`generator.json`](docs/MANIFEST.md) in the generator's repository and either add the repository to [`catalog/catalog.json`](catalog/catalog.json) here (reaches everyone on the next refresh) or add it under **Settings → Your repositories** in the app (just you). Each catalog entry keeps a `fallback` snapshot of the manifest for offline use (`npm run sync:fallbacks` refreshes them); a repository that has no manifest yet can be described the same way.
 
 See [docs/MANIFEST.md](docs/MANIFEST.md) for the convention and [docs/DESIGN.md](docs/DESIGN.md) for how the app is put together and the proposed changes to the existing generator repositories.
 

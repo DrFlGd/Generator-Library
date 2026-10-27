@@ -108,7 +108,7 @@ Entries are either `{ "path": … }` pointing at a `generator.json` inside the r
 
 ## How the library finds manifests
 
-`catalog/catalog.json` in this repository lists the repositories to read. For each one the library fetches `generator.json`, then `generator-library.json`, from the default branch. A catalog entry can also carry an `overlay`: a manifest merged over what the repository publishes, which is how repositories are listed before they adopt the convention and how a fork can point at its upstream's releases. Anyone can add further repositories in the app's Settings.
+`catalog/catalog.json` in this repository lists the repositories to read. For each one the library fetches `generator.json`, then `generator-library.json`, from the default branch. Each catalog entry also carries a `fallback`: a snapshot of that manifest (collections with their entries inlined) that is used only when the repository cannot be read, so the library still shows everything offline, for a private repository without a token, or for a repository that has no manifest yet. What the repository publishes always wins; `npm run sync:fallbacks` refreshes the snapshots. An entry can additionally carry an `overlay`, a manifest merged over the result, which is how a fork can point at its upstream's releases. Anyone can add further repositories in the app's Settings.
 
 ## Checklist for a repository
 

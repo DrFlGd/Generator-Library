@@ -74,7 +74,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     }
     const { catalog, errors } = normalizeCatalog(raw);
     problems.push(...errors.map((e) => ({ repo: catalogRepo, error: e })));
-    catalog.sources.push(...library.state.sources.map((s) => ({ repo: s.repo, manifest: s.manifest ?? '', overlay: s.overlay ?? null, overlayOnly: false, enabled: true, note: 'added by you' })));
+    catalog.sources.push(...library.state.sources.map((s) => ({ repo: s.repo, manifest: s.manifest ?? '', fallback: s.fallback ?? null, overlay: s.overlay ?? null, overlayOnly: false, enabled: true, note: 'added by you' })));
     return catalog;
   }
 
@@ -83,7 +83,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     const catalog = await loadCatalog({ online });
     const readJson = online
       ? (repo, file) => github.readJson(repo, file)
-      : async () => null; // offline: overlays only
+      : async () => null; // offline: catalog fallbacks only
     const resolved = await resolveCatalog(catalog, { readJson });
     manifests = resolved.manifests;
     problems.push(...resolved.problems);
