@@ -98,6 +98,7 @@ export function createGitHub({ token = '', fetchImpl = globalThis.fetch, userAge
       homepage: data.homepage ?? '',
       isPrivate: Boolean(data.private),
       isFork: Boolean(data.fork),
+      hasPages: Boolean(data.has_pages),
       parent: data.parent?.full_name ?? '',
       pushedAt: data.pushed_at ?? '',
       license: data.license?.spdx_id ?? '',

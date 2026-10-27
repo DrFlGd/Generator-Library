@@ -25,11 +25,12 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/catalog.js` | Reads the catalog, fetches manifests, applies overlays, expands collections. One failure never hides the other sources. |
 | `src/lib/github.js` | Tiny GitHub client: read files, list releases, match an asset by glob, download. Anonymous reads go through `raw.githubusercontent.com` to stay clear of the 60/hour API limit. |
 | `src/lib/installer.js` | Downloads a distribution (release asset or repo tarball), unpacks it safely, records what was installed, compares against the newest tag/commit for updates. |
-| `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. |
+| `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. Each app gets a port derived from its id, so its origin, and with it the localStorage and IndexedDB it saved, is the same every launch. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
 | `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python and pip packages such as WebMirror) into the data folder. |
 | `src/lib/jobs.js` | Tracks installs, mirrors and runtime downloads as jobs with progress, a log and an error, for the Jobs panel. |
-| `src/lib/library.js` | On-disk state: installs, favorites, recents, settings, user-added sources. |
+| `src/lib/describe.js` | Turns a repository or link typed into **Add a project** into a manifest: the published one, or one inferred from the homepage, Pages site and release assets. |
+| `src/lib/library.js` | On-disk state: installs, favorites, recents, settings, user-added sources, hidden projects, removed catalog sources. |
 | `src/main/` | Electron main process, IPC surface, generator windows (sandboxed, no Node). |
 | `src/renderer/` | The UI: search, facets, cards, detail view, settings. Plain DOM, no framework. |
 | `catalog/catalog.json` | The repositories the library ships knowing about, each with a `fallback` snapshot of its manifest for offline use (`npm run sync:fallbacks` refreshes them). |

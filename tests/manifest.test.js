@@ -13,10 +13,13 @@ test('a minimal manifest normalizes with defaults', () => {
   assert.deepEqual(manifest.tags, []);
 });
 
-test('repo is required when not read from a repository', () => {
-  const { manifest, errors } = normalizeManifest(minimal());
-  assert.equal(manifest, null);
-  assert.ok(errors.some((e) => e.includes('"repo"')));
+test('repo is required for downloads when not read from a repository, not for a website', () => {
+  const download = normalizeManifest({ ...minimal(), distributions: [{ kind: 'bundle', from: { type: 'release', asset: 'web.zip' } }] });
+  assert.equal(download.manifest, null);
+  assert.ok(download.errors.some((e) => e.includes('"repo"')));
+  const site = normalizeManifest({ ...minimal(), distributions: [{ kind: 'web', url: 'https://example.com/' }, { kind: 'mirror', url: 'https://example.com/' }] });
+  assert.deepEqual(site.errors, []);
+  assert.equal(site.manifest.repo, '');
 });
 
 test('ids must be lowercase slugs', () => {

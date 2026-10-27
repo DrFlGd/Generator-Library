@@ -138,3 +138,24 @@ export async function createStaticServer({ root, entry = 'index.html', spa = fal
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }
+
+// Saved work in a web app lives in storage keyed by its origin, port included.
+// A random port per launch would start every session empty, so each installed
+// app gets the same port every time: a hash of its key into 41000-48999, with a
+// few fallbacks if another program holds that one.
+export function stablePorts(key, count = 5) {
+  let hash = 2166136261;
+  for (const ch of key) hash = Math.imul(hash ^ ch.codePointAt(0), 16777619) >>> 0;
+  return Array.from({ length: count }, (_, i) => 41000 + ((hash + i * 7919) % 8000));
+}
+
+export async function createStableServer(key, options) {
+  for (const port of stablePorts(key)) {
+    try {
+      return await createStaticServer({ ...options, port });
+    } catch (error) {
+      if (error.code !== 'EADDRINUSE') throw error;
+    }
+  }
+  return createStaticServer({ ...options, port: 0 });
+}

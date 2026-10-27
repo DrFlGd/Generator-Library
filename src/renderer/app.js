@@ -14,7 +14,9 @@ const state = {
   kinds: new Set(),
   process: '',
   tags: new Set(),
+  availability: '', // '' | 'online' | 'offline' | 'ready'
   results: [],
+  found: null, // what Add project looked up, waiting to be added
   updates: new Map(), // `${id}/${distKey}` -> result
   jobs: [], // newest first, from main (jobs.js)
   seenJobs: new Set(), // finished job ids the user has looked at in the jobs panel
@@ -91,8 +93,28 @@ async function runSearch() {
   if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id));
   if (state.show === 'favorites') ids = ids.filter((id) => state.data.favorites.includes(id));
   if (state.show === 'recent') ids = state.data.recent.filter((id) => ids.includes(id));
+  const hidden = new Set(state.data.hidden ?? []);
+  ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
+  if (state.availability) ids = ids.filter((id) => matchesAvailability(generatorById(id), state.availability));
   state.results = ids;
   renderGrid();
+}
+
+// Online: opens in a browser window. Works offline: has a way to run without
+// the internet (offline copy, desktop app or mirror) on this computer. Ready
+// offline: one of those is installed.
+const AVAILABILITY = [
+  ['online', 'Online'],
+  ['offline', 'Works offline'],
+  ['ready', 'Ready offline'],
+];
+
+function matchesAvailability(g, value) {
+  if (!g) return false;
+  if (value === 'online') return g.distributions.some((d) => d.kind === 'web');
+  const offline = g.distributions.filter((d) => d.kind !== 'web' && g.usable.includes(d.key));
+  if (value === 'offline') return offline.length > 0;
+  return offline.some((d) => state.data.installed[recordKey(g.id, d.key)]);
 }
 
 function renderFacets() {
@@ -105,6 +127,16 @@ function renderFacets() {
     ...facets.kinds.map(({ value, count }) =>
       chip(KIND_LABELS[value] ?? value, count, state.kinds.has(value), () => {
         state.kinds.has(value) ? state.kinds.delete(value) : state.kinds.add(value);
+        renderFacets();
+        runSearch();
+      }),
+    ),
+  );
+  const visible = state.data.generators.filter((g) => !(state.data.hidden ?? []).includes(g.id));
+  $('availability-chips').replaceChildren(
+    ...AVAILABILITY.map(([value, label]) =>
+      chip(label, visible.filter((g) => matchesAvailability(g, value)).length, state.availability === value, () => {
+        state.availability = state.availability === value ? '' : value;
         renderFacets();
         runSearch();
       }),
@@ -306,11 +338,21 @@ function renderDetail() {
   const source = $('detail-source');
   // replaceChildren writes a null as the text "null", so the optional parts go through el().
   source.replaceChildren(el('span', {},
-    el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.repo}` }) }, `github.com/${g.repo}`),
+    g.repo
+      ? el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.repo}` }) }, `github.com/${g.repo}`)
+      : el('span', {}, g.homepage || g.source || ''),
     g.upstream ? el('span', {}, ' · fork of ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.upstream}` }) }, g.upstream)) : null,
     g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
-    g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : el('span', { class: 'muted' }, ' · described by the catalog (no generator.json in the repo yet)'),
+    g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : el('span', { class: 'muted' }, g.repo ? ' · described by the catalog (no generator.json in the repo yet)' : ' · added by link'),
   ));
+  const hidden = (state.data.hidden ?? []).includes(g.id);
+  $('detail-hide').textContent = hidden ? 'Show in library' : 'Hide from library';
+  $('detail-hide').onclick = async () => {
+    state.data = await call('setHidden', { id: g.id, hidden: !hidden });
+    renderFacets();
+    await runSearch();
+    renderDetail();
+  };
 }
 
 // ──────────────────────────────── settings ────────────────────────────────
@@ -324,18 +366,6 @@ function renderSettings() {
   form.pythonPath.value = s.pythonPath;
   form.webmirrorHome.value = s.webmirrorHome;
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
-  const list = $('sources-list');
-  list.replaceChildren(
-    ...state.data.sources.map((src) =>
-      el(
-        'li',
-        {},
-        el('span', {}, src.repo, src.manifest ? ` · ${src.manifest}` : ''),
-        el('button', { class: 'btn btn-small', type: 'button', onclick: () => call('removeSource', { repo: src.repo }).then(() => reloadState()) }, 'Remove'),
-      ),
-    ),
-  );
-  if (!state.data.sources.length) list.replaceChildren(el('li', { class: 'muted' }, 'None yet'));
   renderRuntimes();
   call('webmirrorSnapshots')
     .then((snaps) => {
@@ -442,18 +472,162 @@ $('settings-form').addEventListener('submit', async (event) => {
   }
 });
 
-$('add-source').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
+// ───────────────────────────────── manage ─────────────────────────────────
+
+const FOUND_LABELS = {
+  manifest: "Uses the repository's own generator.json.",
+  inferred: "No generator.json in the repository, so it was described from its homepage, Pages site and releases. Adding a generator.json to the repo later takes over.",
+  link: 'A website: it opens online and can be mirrored for offline use.',
+};
+
+function manageMessage(text, tone = '') {
+  const box = $('manage-message');
+  box.hidden = !text;
+  box.textContent = text;
+  box.className = `status ${tone ? `is-${tone}` : ''}`;
+}
+
+function renderFound() {
+  const box = $('found');
+  const f = state.found;
+  box.hidden = !f;
+  if (!f) return;
+  const editable = f.found !== 'manifest';
+  const field = (label, name, value, attrs = {}) => el('label', {}, el('span', {}, label), el('input', { name, type: 'text', value: value ?? '', ...attrs }));
+  box.replaceChildren(
+    el('p', { class: 'muted' }, FOUND_LABELS[f.found]),
+    editable
+      ? el(
+          'div',
+          { class: 'found-fields' },
+          field('Name', 'name', f.raw.name),
+          field('Summary', 'summary', f.raw.summary),
+          field('Tags', 'tags', (f.raw.tags ?? []).join(', '), { placeholder: 'comma separated' }),
+          el(
+            'label',
+            {},
+            el('span', {}, 'Process'),
+            el('select', { name: 'process' }, ...['', '3d-print', 'laser', 'cnc', 'tool'].map((p) => el('option', { value: p, selected: (f.raw.process ?? '') === p }, p || 'Not set'))),
+          ),
+        )
+      : el('ul', { class: 'found-list' }, f.preview.map((p) => el('li', {}, el('strong', {}, p.name), p.summary ? ` · ${p.summary}` : ''))),
+    f.kinds.length ? el('p', { class: 'muted' }, 'Ways to run it: ', f.kinds.map((k) => KIND_LABELS[k] ?? k).join(', ')) : null,
+    el(
+      'div',
+      { class: 'row' },
+      el('button', { class: 'btn btn-primary', type: 'button', onclick: addFound }, 'Add to library'),
+      el('button', { class: 'btn', type: 'button', onclick: () => ((state.found = null), renderFound()) }, 'Cancel'),
+    ),
+  );
+}
+
+async function addFound() {
+  const box = $('found');
+  const value = (name) => box.querySelector(`[name="${name}"]`)?.value ?? undefined;
+  const edits = { name: value('name'), summary: value('summary'), process: value('process'), tags: value('tags')?.split(',') };
   try {
-    state.data = await call('addSource', { repo: form.repo.value.trim(), manifest: form.manifest.value.trim() });
-    form.reset();
-    renderSettings();
+    state.data = await call('addProject', { found: state.found, edits });
+    manageMessage(`Added ${state.found.key}`, 'good');
+    state.found = null;
+    $('add-project').reset();
+    renderFound();
+    renderManage();
     renderFacets();
     await runSearch();
   } catch (error) {
-    setStatus(error.message, 'error');
+    manageMessage(error.message, 'error');
   }
+}
+
+$('add-project').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const input = event.currentTarget.input.value.trim();
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  manageMessage('Looking it up…');
+  try {
+    state.found = await call('describeProject', { input });
+    manageMessage('');
+  } catch (error) {
+    state.found = null;
+    manageMessage(error.message, 'error');
+  } finally {
+    button.disabled = false;
+    renderFound();
+  }
+});
+
+function renderManage() {
+  const projects = state.data.projects ?? [];
+  const row = (p) =>
+    el(
+      'li',
+      { class: 'project' },
+      el(
+        'div',
+        { class: 'project-head' },
+        el('div', {}, el('strong', {}, p.name), el('div', { class: 'muted small' }, p.key, p.kind === 'link' ? ' · website' : '')),
+        p.removed
+          ? el('button', { class: 'btn btn-small', type: 'button', onclick: () => manageAction('restoreProject', { key: p.key }) }, 'Restore')
+          : el(
+              'button',
+              {
+                class: 'btn btn-small btn-danger',
+                type: 'button',
+                onclick: () => {
+                  const installed = p.generators.filter((g) => g.installed).length;
+                  const note = installed ? ` Its installed copies (${installed}) are deleted too.` : '';
+                  const undo = p.origin === 'yours' ? '' : ' You can restore it later.';
+                  if (window.confirm(`Remove ${p.name} from your library?${note}${undo}`)) manageAction('removeProject', { key: p.key });
+                },
+              },
+              'Remove',
+            ),
+      ),
+      p.removed || !p.generators.length
+        ? null
+        : el(
+            'div',
+            { class: 'project-generators' },
+            p.generators.map((g) =>
+              el(
+                'button',
+                {
+                  class: `chip ${g.hidden ? '' : 'is-active'}`,
+                  type: 'button',
+                  title: g.hidden ? 'Hidden: click to show it in the library' : 'Shown: click to hide it',
+                  onclick: () => manageAction('setHidden', { id: g.id, hidden: !g.hidden }),
+                },
+                g.hidden ? '◌ ' : '● ',
+                g.name,
+              ),
+            ),
+          ),
+    );
+  const group = (title, list) => (list.length ? [el('h3', {}, `${title} · ${list.length}`), el('ul', { class: 'projects' }, list.map(row))] : []);
+  $('projects').replaceChildren(
+    ...group('Added by you', projects.filter((p) => p.origin === 'yours')),
+    ...group('From the catalog', projects.filter((p) => p.origin !== 'yours' && !p.removed)),
+    ...group('Removed', projects.filter((p) => p.removed)),
+  );
+}
+
+async function manageAction(name, payload) {
+  try {
+    state.data = await call(name, payload);
+    renderManage();
+    renderFacets();
+    await runSearch();
+  } catch (error) {
+    manageMessage(error.message, 'error');
+  }
+}
+
+$('open-manage').addEventListener('click', () => {
+  manageMessage('');
+  renderFound();
+  renderManage();
+  $('manage').showModal();
 });
 
 // ───────────────────────────────── wiring ─────────────────────────────────
@@ -465,6 +639,7 @@ async function reloadState({ keepSearch = true } = {}) {
   if (keepSearch) await runSearch();
   if ($('detail').open) renderDetail();
   if ($('settings').open) renderSettings();
+  if ($('manage').open) renderManage();
 }
 
 async function refresh() {

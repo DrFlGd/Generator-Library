@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';
 import { facets, search } from '../src/lib/search.js';
-import { currentPlatform, distributionKey, usableDistributions } from '../src/lib/manifest.js';
+import { currentPlatform, distributionKey, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
 import { mimeFor } from '../src/lib/server.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,8 +29,15 @@ const mock = {
   sources: [],
   jobs: [],
   python: null,
+  hidden: [],
+  removed: [],
+  added: [], // { key, manifest }
   settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false },
 };
+
+function all() {
+  return [...manifests, ...mock.added.map((a) => a.manifest)];
+}
 
 function state() {
   const platform = currentPlatform();
@@ -44,11 +51,19 @@ function state() {
     installed: mock.installed,
     running: [],
     jobs: mock.jobs,
+    hidden: mock.hidden,
+    projects: [
+      ...mock.added.map(({ key, manifest }) => ({ key, kind: key.includes('/') && !key.startsWith('http') ? 'repo' : 'link', origin: 'yours', removed: false, name: manifest.name, generators: [{ id: manifest.id, name: manifest.name, hidden: mock.hidden.includes(manifest.id), installed: false }] })),
+      ...catalog.sources.map((source) => {
+        const gens = all().filter((m) => m.repo === source.repo && !mock.added.some((a) => a.manifest.id === m.id));
+        return { key: source.repo, kind: 'repo', origin: 'catalog', removed: mock.removed.includes(source.repo), name: gens.length === 1 ? gens[0].name : source.fallback?.name ?? source.repo, generators: gens.map((g) => ({ id: g.id, name: g.name, hidden: mock.hidden.includes(g.id), installed: Object.values(mock.installed).some((r) => r.id === g.id) })) };
+      }),
+    ],
     runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, build: '3.12 (mock)' } },
     catalogSource: 'mock',
     problems,
     facets: facets(manifests),
-    generators: manifests.map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
+    generators: all().filter((m) => !mock.removed.includes(m.repo)).map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
   };
 }
 
@@ -62,7 +77,7 @@ function mockJob(title, target, { failed = '' } = {}) {
 const handlers = {
   getState: () => state(),
   refreshCatalog: () => state(),
-  search: ({ query, filters }) => search(manifests, query, { platform: currentPlatform(), ...filters }, new Set(Object.values(mock.installed).map((r) => r.id))).map((m) => m.id),
+  search: ({ query, filters }) => search(all().filter((m) => !mock.removed.includes(m.repo)), query, { platform: currentPlatform(), ...filters }, new Set(Object.values(mock.installed).map((r) => r.id))).map((m) => m.id),
   install: ({ id, distKey }) => {
     const m = manifests.find((x) => x.id === id);
     const record = { id, name: m.name, distKey, kind: distKey.split(':')[0], version: 'mock-1.0', source: { type: 'release', tag: 'mock-1.0' }, dir: `/mock/${id}`, installedAt: new Date().toISOString(), sizeBytes: 12345678 };
@@ -107,6 +122,34 @@ const handlers = {
   },
   removeRuntime: () => {
     mock.python = null;
+    return state();
+  },
+  describeProject: ({ input }) => ({
+    found: 'inferred',
+    repo: input,
+    key: input,
+    collection: false,
+    raw: { id: 'mock-project', name: 'Mock Project', summary: 'Described from the repository homepage and releases.', tags: ['mock'], distributions: [{ kind: 'web', url: 'https://example.com/' }, { kind: 'mirror', url: 'https://example.com/' }] },
+    preview: [{ name: 'Mock Project', summary: '' }],
+    kinds: ['web', 'mirror'],
+  }),
+  addProject: ({ found, edits }) => {
+    const raw = { ...found.raw, ...Object.fromEntries(Object.entries(edits).filter(([, v]) => typeof v === 'string' && v)) };
+    const { manifest } = normalizeManifest(raw, { repo: '' });
+    mock.added.push({ key: found.key, manifest: { ...manifest, source: found.key, origin: 'yours' } });
+    return state();
+  },
+  removeProject: ({ key }) => {
+    if (mock.added.some((a) => a.key === key)) mock.added = mock.added.filter((a) => a.key !== key);
+    else mock.removed.push(key);
+    return state();
+  },
+  restoreProject: ({ key }) => {
+    mock.removed = mock.removed.filter((k) => k !== key);
+    return state();
+  },
+  setHidden: ({ id, hidden }) => {
+    mock.hidden = hidden ? [...mock.hidden, id] : mock.hidden.filter((x) => x !== id);
     return state();
   },
   jobs: () => mock.jobs,

@@ -21,6 +21,7 @@
       <button id="refresh" class="btn" title="Re-read the catalog from GitHub">Refresh</button>
       <button id="check-updates" class="btn" title="Compare installed generators with GitHub">Check updates</button>
       <button id="open-jobs" class="btn btn-jobs" title="Installs, mirrors and downloads">Jobs <span id="jobs-count" class="jobs-count" hidden></span></button>
+      <button id="open-manage" class="btn" title="Add, hide or remove projects">Manage</button>
       <button id="open-settings" class="btn btn-quiet" aria-label="Settings">Settings</button>
     </div>
   </header>
@@ -35,7 +36,12 @@
           <button class="chip" data-show="updates">Updates</button>
           <button class="chip" data-show="favorites">Favorites</button>
           <button class="chip" data-show="recent">Recent</button>
+          <button class="chip" data-show="hidden">Hidden</button>
         </div>
+      </section>
+      <section class="facet">
+        <h2>Availability</h2>
+        <div class="chips" id="availability-chips"></div>
       </section>
       <section class="facet">
         <h2>Runs as</h2>
@@ -61,7 +67,7 @@
       <div id="grid" class="grid" aria-live="polite"></div>
       <div id="empty" class="empty" hidden>
         <h2>Nothing matches</h2>
-        <p>Try fewer filters, or add a repository under Settings.</p>
+        <p>Try fewer filters, or add a project under Manage.</p>
       </div>
     </main>
   </div>
@@ -82,6 +88,7 @@
       <div id="detail-dists" class="dist-list"></div>
       <h3>Source</h3>
       <p id="detail-source" class="muted"></p>
+      <button id="detail-hide" class="btn btn-small" type="button"></button>
     </div>
   </dialog>
 
@@ -124,20 +131,27 @@
       <ul id="runtimes" class="sources"></ul>
     </section>
     <section class="settings-sources">
-      <h3>Your repositories</h3>
-      <p class="muted">Add any GitHub repository that has a <code>generator.json</code> or <code>generator-library.json</code>.</p>
-      <ul id="sources-list" class="sources"></ul>
-      <form id="add-source" class="row">
-        <input name="repo" type="text" placeholder="owner/name" required />
-        <input name="manifest" type="text" placeholder="path (optional)" />
-        <button type="submit" class="btn">Add</button>
-      </form>
-    </section>
-    <section class="settings-sources">
       <h3>WebMirror snapshots</h3>
       <p class="muted">Sites already mirrored with WebMirror on this machine.</p>
       <ul id="snapshots-list" class="sources"></ul>
     </section>
+  </dialog>
+
+  <dialog id="manage" class="dialog manage">
+    <form method="dialog" class="dialog-head">
+      <div>
+        <h2>Manage projects</h2>
+        <p class="muted">Add a GitHub repository or any website, hide generators you do not use, or remove a project.</p>
+      </div>
+      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+    </form>
+    <form id="add-project" class="row">
+      <input name="input" type="text" placeholder="owner/name, a github.com link, or any https:// link" required autocomplete="off" />
+      <button type="submit" class="btn btn-primary">Look up</button>
+    </form>
+    <div id="manage-message" class="status" hidden></div>
+    <div id="found" class="found settings-form" hidden></div>
+    <div id="projects"></div>
   </dialog>
 
   <dialog id="jobs" class="dialog">
