@@ -180,11 +180,13 @@ export function normalizeManifest(raw, context = {}) {
 
   const repo = isValidRepo(raw.repo) ? raw.repo : context.repo;
   if (raw.repo !== undefined && !isValidRepo(raw.repo)) errors.push('"repo" must be owner/name');
-  if (!repo) errors.push('"repo" is required when the manifest is not read from a repository');
-
   const distributions = Array.isArray(raw.distributions)
     ? raw.distributions.map((d, i) => normalizeDistribution(d, i, errors)).filter(Boolean)
     : [];
+  // A website added by link has no repository; only downloads need one to come from.
+  if (!repo && distributions.some((d) => d.from && !d.from.repo)) {
+    errors.push('"repo" is required when the manifest is not read from a repository');
+  }
   if (!Array.isArray(raw.distributions) || raw.distributions.length === 0) {
     errors.push('"distributions" must list at least one way to run the generator');
   }
@@ -216,7 +218,7 @@ export function normalizeManifest(raw, context = {}) {
     homepage: str(raw.homepage),
     license: str(raw.license),
     author: str(raw.author),
-    repo,
+    repo: repo ?? '',
     upstream: isValidRepo(raw.upstream) ? raw.upstream : '',
     requires: normalizeRequires(raw.requires, errors),
     distributions,

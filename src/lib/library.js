@@ -20,8 +20,12 @@ export const DEFAULT_SETTINGS = {
   checkUpdatesOnStart: true,
 };
 
+export function sourceKey(source) {
+  return source.repo || source.url || '';
+}
+
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [] };
 }
 
 export class Library {
@@ -105,15 +109,35 @@ export class Library {
     return this.state.settings;
   }
 
+  // A source you added is a repository ({ repo, manifest?, fallback? }) or a
+  // website ({ url, overlay }); `sourceKey` names either.
   async addSource(source) {
-    if (this.state.sources.some((s) => s.repo.toLowerCase() === source.repo.toLowerCase())) return false;
+    const key = sourceKey(source).toLowerCase();
+    if (this.state.sources.some((s) => sourceKey(s).toLowerCase() === key)) return false;
     this.state.sources.push(source);
+    this.state.removedSources = this.state.removedSources.filter((k) => k.toLowerCase() !== key);
     await this.save();
     return true;
   }
 
-  async removeSource(repo) {
-    this.state.sources = this.state.sources.filter((s) => s.repo.toLowerCase() !== repo.toLowerCase());
+  async removeSource(key) {
+    const lower = key.toLowerCase();
+    this.state.sources = this.state.sources.filter((s) => sourceKey(s).toLowerCase() !== lower);
+    await this.save();
+  }
+
+  // Catalog sources cannot be deleted from the shipped catalog; removing one
+  // hides it here until it is restored.
+  async setSourceRemoved(key, removed) {
+    const lower = key.toLowerCase();
+    const rest = this.state.removedSources.filter((k) => k.toLowerCase() !== lower);
+    this.state.removedSources = removed ? [...rest, key] : rest;
+    await this.save();
+  }
+
+  async setHidden(id, hidden) {
+    const rest = this.state.hidden.filter((x) => x !== id);
+    this.state.hidden = hidden ? [...rest, id] : rest;
     await this.save();
   }
 }

@@ -133,7 +133,8 @@ export async function resolveCatalog(catalog, io) {
         continue;
       }
       seen.add(manifest.id);
-      manifests.push(manifest);
+      // Which source a generator came from, so Manage can list and remove it.
+      manifests.push({ ...manifest, source: source.repo || source.url, origin: source.origin ?? 'catalog' });
     }
   }
   manifests.sort((a, b) => a.name.localeCompare(b.name));

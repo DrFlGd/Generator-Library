@@ -99,3 +99,22 @@ test('the shipped catalog resolves offline without problems', async () => {
   assert.ok(ids.includes('clicker-generator'));
   assert.ok(ids.includes('gridfinity-bin-designer'));
 });
+
+test('a website source resolves from its overlay without reading GitHub, and disabled sources are skipped', async () => {
+  const reads = [];
+  const readJson = async (repo, file) => {
+    reads.push(`${repo}/${file}`);
+    return null;
+  };
+  const overlay = { id: 'box', name: 'Box', distributions: [{ kind: 'web', url: 'https://example.com/box/' }, { kind: 'mirror', url: 'https://example.com/box/' }] };
+  const catalog = {
+    sources: [
+      { repo: '', url: 'https://example.com/box/', overlay, overlayOnly: true, enabled: true, origin: 'yours' },
+      { repo: 'o/gone', fallback: { id: 'gone', name: 'Gone', distributions: [{ kind: 'web', url: 'https://g/' }] }, enabled: false },
+    ],
+  };
+  const { manifests, problems } = await resolveCatalog(catalog, { readJson });
+  assert.deepEqual(problems, []);
+  assert.deepEqual(reads, []);
+  assert.deepEqual(manifests.map((m) => [m.id, m.source, m.origin]), [['box', 'https://example.com/box/', 'yours']]);
+});

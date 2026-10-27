@@ -10,12 +10,14 @@ import { createGitHub } from '../lib/github.js';
 import { normalizeCatalog, resolveCatalog } from '../lib/catalog.js';
 import { search, facets } from '../lib/search.js';
 import { checkForUpdate, installDistribution, uninstallDistribution } from '../lib/installer.js';
-import { createStaticServer } from '../lib/server.js';
+import { createStableServer } from '../lib/server.js';
 import { currentPlatform, distributionKey, usableDistributions } from '../lib/manifest.js';
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
 import { createJobs } from '../lib/jobs.js';
 import { createRuntimes, WEBMIRROR_REQUIREMENT } from '../lib/runtimes.js';
-import { mergeRequires } from '../lib/manifest.js';
+import { mergeRequires, normalizeManifest } from '../lib/manifest.js';
+import { describeProject as describeInput } from '../lib/describe.js';
+import { sourceKey } from '../lib/library.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
@@ -25,6 +27,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   let manifests = [];
   let problems = [];
   let catalogSource = 'bundled';
+  let catalogSources = []; // every source last loaded, removed ones included
   const servers = new Map(); // installed record key -> { server, window }
   const listeners = new Set();
 
@@ -86,7 +89,23 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     }
     const { catalog, errors } = normalizeCatalog(raw);
     problems.push(...errors.map((e) => ({ repo: catalogRepo, error: e })));
-    catalog.sources.push(...library.state.sources.map((s) => ({ repo: s.repo, manifest: s.manifest ?? '', fallback: s.fallback ?? null, overlay: s.overlay ?? null, overlayOnly: false, enabled: true, note: 'added by you' })));
+    catalog.sources.push(
+      ...library.state.sources.map((s) => ({
+        repo: s.repo ?? '',
+        url: s.url ?? '',
+        manifest: s.manifest ?? '',
+        fallback: s.fallback ?? null,
+        overlay: s.overlay ?? null,
+        overlayOnly: !s.repo, // a website has nothing to read from GitHub
+        enabled: true,
+        origin: 'yours',
+      })),
+    );
+    const removed = new Set(library.state.removedSources.map((k) => k.toLowerCase()));
+    for (const source of catalog.sources) {
+      if (source.origin !== 'yours' && removed.has(sourceKey(source).toLowerCase())) source.enabled = false;
+    }
+    catalogSources = catalog.sources;
     return catalog;
   }
 
@@ -118,6 +137,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       runtimes: runtimes.status(),
       catalogSource,
       problems,
+      hidden: library.state.hidden,
+      projects: projects(),
       facets: facets(manifests),
       generators: manifests.map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
     };
@@ -171,7 +192,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
         return { url: existing.server.url };
       }
       const dist = distributionOf(manifest, distKey);
-      const server = await createStaticServer({ root: record.dir, entry: record.entry, spa: dist.spa });
+      const server = await createStableServer(key, { root: record.dir, entry: record.entry, spa: dist.spa });
       const win = openGeneratorWindow({ title: manifest.name, url: server.url, partition: `persist:${manifest.id}` });
       win.on('closed', () => stopServer(key));
       servers.set(key, { server, window: win });
@@ -277,15 +298,86 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return state();
   }
 
-  async function addSource({ repo, manifest }) {
-    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) throw new Error('Use the form owner/name');
-    await library.addSource({ repo, manifest: manifest || '' });
+  // Every source as a project for the Manage view: where it comes from, whether
+  // it was removed, and its generators with their hidden and installed state.
+  function projects() {
+    const installed = library.installedIds();
+    const hidden = new Set(library.state.hidden);
+    return catalogSources.map((source) => {
+      const key = sourceKey(source);
+      const generators = manifests
+        .filter((m) => m.source === key)
+        .map((m) => ({ id: m.id, name: m.name, hidden: hidden.has(m.id), installed: installed.has(m.id) }));
+      const fallbackName = source.overlay?.name ?? source.fallback?.name ?? '';
+      return { key, kind: source.repo ? 'repo' : 'link', origin: source.origin ?? 'catalog', removed: !source.enabled, name: generators.length === 1 ? generators[0].name : fallbackName || key, generators };
+    });
+  }
+
+  // Look up what the user typed in Add project, without adding it yet.
+  async function describeProject({ input }) {
+    const found = await describeInput(input, { github });
+    const key = found.repo || found.url;
+    if (catalogSources.some((s) => sourceKey(s).toLowerCase() === key.toLowerCase() && s.enabled)) {
+      throw new Error(`${key} is already in your library`);
+    }
+    const collection = Array.isArray(found.raw.generators);
+    const preview = collection
+      ? found.raw.generators.map((g) => ({ name: g.name ?? g.path ?? '?', summary: g.summary ?? '' }))
+      : [{ name: found.raw.name, summary: found.raw.summary ?? '' }];
+    if (!collection) {
+      const { errors } = normalizeManifest(found.raw, { repo: found.repo || '' });
+      if (errors.length) throw new Error(errors.join('; '));
+    }
+    return { ...found, key, collection, preview, kinds: collection ? [] : found.raw.distributions.map((d) => d.kind) };
+  }
+
+  // Add what describeProject found. `edits` (name, summary, tags, process) apply
+  // to a project the library described itself; a repo's own manifest is used as is.
+  async function addProject({ found, edits = {} }) {
+    if (!found || (found.found !== 'manifest' && found.found !== 'inferred' && found.found !== 'link')) throw new Error('Look the project up first');
+    let raw = found.raw;
+    if (found.found !== 'manifest') {
+      raw = { ...raw };
+      for (const field of ['name', 'summary', 'process']) if (typeof edits[field] === 'string' && edits[field].trim()) raw[field] = edits[field].trim();
+      if (Array.isArray(edits.tags)) raw.tags = edits.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean);
+      const { errors } = normalizeManifest(raw, { repo: found.repo || '' });
+      if (errors.length) throw new Error(errors.join('; '));
+    }
+    const addedAt = new Date().toISOString();
+    if (found.found === 'manifest') await library.addSource({ repo: found.repo, manifest: found.manifestPath, addedAt });
+    else if (found.found === 'inferred') await library.addSource({ repo: found.repo, fallback: raw, addedAt });
+    else await library.addSource({ url: found.url, overlay: raw, addedAt });
     return refreshCatalog();
   }
 
-  async function removeSource({ repo }) {
-    await library.removeSource(repo);
+  // Remove a project: one you added is deleted, a catalog one is set aside so it
+  // can be restored. Its installed copies are uninstalled either way.
+  async function removeProject({ key }) {
+    for (const m of manifests.filter((x) => x.source === key)) {
+      for (const record of library.installedFor(m.id)) await uninstall({ id: m.id, distKey: record.distKey });
+    }
+    if (library.state.sources.some((s) => sourceKey(s) === key)) await library.removeSource(key);
+    else await library.setSourceRemoved(key, true);
     return refreshCatalog();
+  }
+
+  async function restoreProject({ key }) {
+    await library.setSourceRemoved(key, false);
+    return refreshCatalog();
+  }
+
+  async function setHidden({ id, hidden }) {
+    await library.setHidden(id, Boolean(hidden));
+    return state();
+  }
+
+  // Kept for the old Settings form: add a repository by name.
+  async function addSource({ repo }) {
+    return addProject({ found: await describeProject({ input: repo }) });
+  }
+
+  async function removeSource({ repo }) {
+    return removeProject({ key: repo });
   }
 
   async function openSnapshot({ key }) {
@@ -298,7 +390,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       existing.window.focus();
       return { url: existing.server.url };
     }
-    const server = await createStaticServer({ root: snap.dir, entry: String(snap.entry).replace(/^\/+/, ''), spa: true });
+    const server = await createStableServer(serverKey, { root: snap.dir, entry: String(snap.entry).replace(/^\/+/, ''), spa: true });
     const win = openGeneratorWindow({ title: snap.url, url: server.url, partition: `persist:webmirror-${key}` });
     win.on('closed', () => stopServer(serverKey));
     servers.set(serverKey, { server, window: win });
@@ -342,6 +434,11 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     openSnapshot,
     installRuntime,
     removeRuntime,
+    describeProject,
+    addProject,
+    removeProject,
+    restoreProject,
+    setHidden,
     jobs: () => jobs.list(),
     clearJobs: () => jobs.clearFinished(),
     subscribe: (fn) => listeners.add(fn),
