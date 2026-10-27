@@ -78,11 +78,6 @@
             "icon": "apps/hub/public/thumbs/clicker.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/Clicker-Generator/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -111,11 +106,6 @@
             "icon": "apps/hub/public/thumbs/magnet.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/magnet/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -142,11 +132,6 @@
             "process": "3d-print",
             "icon": "apps/hub/public/thumbs/keycap.png",
             "distributions": [
-              {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/SVG-keycap-generator/",
-                "label": "Open online"
-              },
               {
                 "kind": "bundle",
                 "label": "Install offline copy",
@@ -175,11 +160,6 @@
             "icon": "apps/hub/public/thumbs/name-keychain.jpg",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/name-keychain/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -201,11 +181,6 @@
             "process": "3d-print",
             "icon": "apps/hub/public/thumbs/house-number.png",
             "distributions": [
-              {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/house-number/",
-                "label": "Open online"
-              },
               {
                 "kind": "bundle",
                 "label": "Install offline copy",
@@ -229,11 +204,6 @@
             "icon": "apps/hub/public/thumbs/pen-topper.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/pen-topper/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -256,11 +226,6 @@
             "icon": "apps/hub/public/thumbs/foldbox.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/foldbox/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -282,11 +247,6 @@
             "process": "3d-print",
             "icon": "apps/hub/public/thumbs/keychain-carabiner.png",
             "distributions": [
-              {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/keychain-carabiner/",
-                "label": "Open online"
-              },
               {
                 "kind": "bundle",
                 "label": "Install offline copy",
@@ -311,11 +271,6 @@
             "icon": "apps/hub/public/thumbs/laser-studio.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/laser-studio/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
@@ -338,17 +293,36 @@
             "icon": "apps/hub/public/thumbs/laser-box.png",
             "distributions": [
               {
-                "kind": "web",
-                "url": "https://vostoklabs.github.io/laser-box/",
-                "label": "Open online"
-              },
-              {
                 "kind": "bundle",
                 "label": "Install offline copy",
                 "from": {
                   "type": "release",
                   "tag": "web-*",
                   "asset": "laser-box-web-*.zip"
+                },
+                "entry": "index.html"
+              }
+            ]
+          },
+          {
+            "id": "led-lightbox",
+            "name": "Image LED Lightbox",
+            "summary": "Custom hollow LED boxes from a logo or silhouette image.",
+            "tags": [
+              "boxes",
+              "desk-home",
+              "signs"
+            ],
+            "process": "3d-print",
+            "icon": "apps/led-lightbox/public/preview.svg",
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "led-lightbox-web-*.zip"
                 },
                 "entry": "index.html"
               }
