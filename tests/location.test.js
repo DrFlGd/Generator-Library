@@ -94,7 +94,8 @@ test('moveTarget uses an empty folder or an existing library as is', () => {
 });
 
 test('the library rewrites its paths when its folder has moved', async () => {
-  assert.deepEqual(rebasePaths({ a: ['/old/apps/x', '/elsewhere/y'], b: 2 }, '/old', '/new'), { a: [path.join('/new', 'apps/x'), '/elsewhere/y'], b: 2 });
+  const p = (...parts) => path.join(path.sep, ...parts);
+  assert.deepEqual(rebasePaths({ a: [p('old', 'apps', 'x'), p('elsewhere', 'y')], b: 2 }, p('old'), p('new')), { a: [p('new', 'apps', 'x'), p('elsewhere', 'y')], b: 2 });
   const root = tmp();
   const before = path.join(root, 'E');
   const lib = new Library(before);
