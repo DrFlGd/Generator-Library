@@ -1,13 +1,19 @@
 name: Desktop builds
 
 # Builds the installer and portable executable. Every push to main uploads them
-# as workflow artifacts; a tag like v0.1.0 also publishes a GitHub release, which
-# is what the library itself reads to offer updates.
+# as workflow artifacts. A tag like v0.1.0, or a manual run with "publish"
+# ticked, also publishes a GitHub release (tagged v<package.json version> for a
+# manual run), which is what the library itself reads to offer updates.
 on:
   push:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub release tagged v<package.json version>
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,15 +41,6 @@ jobs:
             dist/Generator-Library-Portable-*.exe
           if-no-files-found: error
           retention-days: 30
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/Generator-Library-Setup-*.exe
-            dist/Generator-Library-Portable-*.exe
-          fail_on_unmatched_files: true
-          generate_release_notes: true
 
   linux:
     runs-on: ubuntu-latest
@@ -62,9 +59,35 @@ jobs:
           path: dist/*.AppImage
           if-no-files-found: error
           retention-days: 30
+
+  # One job publishes both platforms' files, so the two builds never race to
+  # create the same release.
+  release:
+    needs: [windows, linux]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Choose the tag
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "TAG=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          else
+            echo "TAG=v$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.AppImage
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/Generator-Library-Setup-*.exe
+            dist/Generator-Library-Portable-*.exe
+            dist/*.AppImage
           fail_on_unmatched_files: true
+          generate_release_notes: true
