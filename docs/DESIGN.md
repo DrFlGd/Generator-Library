@@ -66,9 +66,15 @@ Common threads that shaped the convention:
 - Desktop builds are all unsigned Windows exes produced by Actions. The ones published as **releases** can be installed and updated automatically; the ones left as **artifacts** cannot (artifacts expire after 14 to 90 days and need a GitHub login).
 - `generators.json` in Generator-Standalone is already a registry with ids, names, blurbs, topics and process. `generator-library.json` is the same idea made repo-independent.
 
-## Proposed changes to the existing repositories
+## Changes to the existing repositories
 
-These are proposals; nothing has been changed in those repositories. Each is small and self-contained.
+Each is a small, self-contained pull request:
+[terrain-press#14](https://github.com/DrFlGd/terrain-press/pull/14),
+[Generator-Standalone#11](https://github.com/DrFlGd/Generator-Standalone/pull/11),
+[Marble-Run-Maker#1](https://github.com/DrFlGd/Marble-Run-Maker/pull/1),
+[gridfinity-layout-tool#5](https://github.com/DrFlGd/gridfinity-layout-tool/pull/5),
+[easy-enclosure#1](https://github.com/DrFlGd/easy-enclosure/pull/1),
+[WebMirror#6](https://github.com/DrFlGd/WebMirror/pull/6).
 
 1. **Generator-Standalone**
    - Add `generator-library.json` at the root (the overlay in `catalog/catalog.json` is a ready-made starting point) and a `generator.json` per app under `apps/<app>/`.
@@ -82,7 +88,7 @@ These are proposals; nothing has been changed in those repositories. Each is sma
    - Publish releases from `build.yml` so the library can install it.
    - Nice to have: a `python -m webmirror --mirror <url> --json` CLI mode. The library currently calls `MirrorEngine` directly through `python -c`, which works today but is coupled to the module's internals.
 
-Once a repository carries its own manifest, its overlay in `catalog/catalog.json` shrinks to `{ "repo": "DrFlGd/<name>" }`.
+Once a repository's manifest is merged, its overlay in `catalog/catalog.json` can shrink to `{ "repo": "DrFlGd/<name>" }`; until then the overlay matches what those pull requests add, so either copy works.
 
 ## Running and building
 
