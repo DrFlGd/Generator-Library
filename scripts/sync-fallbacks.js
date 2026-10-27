@@ -1,7 +1,9 @@
 // Refresh the `fallback` snapshots in catalog/catalog.json from what each
 // repository publishes on GitHub. Collections are stored with their entries
 // inlined so the snapshot resolves without any further reads. A repository that
-// cannot be read (private without GITHUB_TOKEN, offline) keeps its old snapshot.
+// cannot be read (private without GITHUB_TOKEN, offline) keeps its old snapshot
+// and fails the run; one that publishes no manifest (a third-party project
+// described only here) keeps its hand-written fallback.
 import { readFile, writeFile } from 'node:fs/promises';
 import { createGitHub } from '../src/lib/github.js';
 import { DEFAULT_MANIFEST_PATHS } from '../src/lib/catalog.js';
@@ -30,8 +32,7 @@ for (const source of raw.sources ?? []) {
     continue;
   }
   if (!published) {
-    console.error(`${source.repo}: no manifest published; keeping the existing fallback`);
-    failures += 1;
+    console.log(`${source.repo}: publishes no manifest; fallback kept as written`);
     continue;
   }
 
