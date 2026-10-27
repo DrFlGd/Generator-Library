@@ -68,6 +68,41 @@ function normalizeFrom(raw, errors, where) {
   return null;
 }
 
+// Normalize a manifest's `requires` list. Each entry names a runtime and what to
+// install into it; package strings are pip requirement specs, objects may add the
+// module to import as the "is it there" check.
+export function normalizeRequires(raw, errors = [], where = 'requires') {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    errors.push(`${where}: must be a list`);
+    return [];
+  }
+  const out = [];
+  raw.forEach((item, i) => {
+    if (!item || typeof item !== 'object' || item.runtime !== 'python') {
+      errors.push(`${where}[${i}]: "runtime" must be "python"`);
+      return;
+    }
+    const packages = (Array.isArray(item.packages) ? item.packages : []).map((p) => (typeof p === 'string' ? { spec: p.trim() } : { spec: String(p?.spec ?? '').trim(), import: typeof p?.import === 'string' ? p.import.trim() : undefined })).filter((p) => p.spec);
+    out.push({ runtime: 'python', packages });
+  });
+  return out;
+}
+
+// Fold several requirement lists into one per runtime, packages de-duplicated.
+export function mergeRequires(...lists) {
+  const packages = new Map();
+  let python = false;
+  for (const list of lists) {
+    for (const req of list ?? []) {
+      if (req.runtime !== 'python') continue;
+      python = true;
+      for (const p of req.packages) if (!packages.has(p.spec)) packages.set(p.spec, p);
+    }
+  }
+  return python ? [{ runtime: 'python', packages: [...packages.values()] }] : [];
+}
+
 function normalizeDistribution(raw, index, errors) {
   const where = `distributions[${index}]`;
   if (!raw || typeof raw !== 'object') {
@@ -86,6 +121,8 @@ function normalizeDistribution(raw, index, errors) {
     else dist.platform = platform;
   }
   if (raw.notes !== undefined) dist.notes = str(raw.notes);
+  const requires = normalizeRequires(raw.requires, errors, `${where}.requires`);
+  if (requires.length) dist.requires = requires;
 
   if (kind === 'web') {
     const url = str(raw.url);
@@ -181,8 +218,10 @@ export function normalizeManifest(raw, context = {}) {
     author: str(raw.author),
     repo,
     upstream: isValidRepo(raw.upstream) ? raw.upstream : '',
+    requires: normalizeRequires(raw.requires, errors),
     distributions,
   };
+  if (errors.length) return { manifest: null, errors };
   if (context.collection) manifest.collection = context.collection;
   if (context.path) manifest.manifestPath = context.path;
   return { manifest, errors: [] };

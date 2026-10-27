@@ -6,6 +6,7 @@
 //   <dataDir>/apps/<id>/<distKey>/...     unpacked bundles and executables
 //   <dataDir>/downloads/                  temporary archives
 //   <dataDir>/catalog.json                last catalog fetched from GitHub
+//   <dataDir>/runtimes/                   private runtimes such as Python (runtimes.js)
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -20,7 +21,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [] };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {} };
 }
 
 export class Library {

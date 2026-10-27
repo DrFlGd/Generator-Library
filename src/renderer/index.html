@@ -20,6 +20,7 @@
     <div class="topbar-actions">
       <button id="refresh" class="btn" title="Re-read the catalog from GitHub">Refresh</button>
       <button id="check-updates" class="btn" title="Compare installed generators with GitHub">Check updates</button>
+      <button id="open-jobs" class="btn btn-jobs" title="Installs, mirrors and downloads">Jobs <span id="jobs-count" class="jobs-count" hidden></span></button>
       <button id="open-settings" class="btn btn-quiet" aria-label="Settings">Settings</button>
     </div>
   </header>
@@ -101,9 +102,9 @@
         <small>The library reads <code>catalog/catalog.json</code> from here on refresh.</small>
       </label>
       <label>
-        <span>Python for WebMirror</span>
-        <input name="pythonPath" type="text" placeholder="Leave empty to use python3 / py from PATH" />
-        <small>Used to mirror live sites for offline use. Install with <code>pip install git+https://github.com/DrFlGd/WebMirror</code>.</small>
+        <span>Your own Python (optional)</span>
+        <input name="pythonPath" type="text" placeholder="Leave empty and the library manages its own Python" />
+        <small>Only if you want WebMirror to run in a Python you maintain; it must already have WebMirror installed.</small>
       </label>
       <label>
         <span>WebMirror home</span>
@@ -117,6 +118,11 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
+    <section class="settings-sources">
+      <h3>Dependencies</h3>
+      <p class="muted">Installed privately for the library, never system-wide. Mirroring a site needs Python and WebMirror.</p>
+      <ul id="runtimes" class="sources"></ul>
+    </section>
     <section class="settings-sources">
       <h3>Your repositories</h3>
       <p class="muted">Add any GitHub repository that has a <code>generator.json</code> or <code>generator-library.json</code>.</p>
@@ -132,6 +138,17 @@
       <p class="muted">Sites already mirrored with WebMirror on this machine.</p>
       <ul id="snapshots-list" class="sources"></ul>
     </section>
+  </dialog>
+
+  <dialog id="jobs" class="dialog">
+    <form method="dialog" class="dialog-head">
+      <h2>Jobs</h2>
+      <div class="row">
+        <button id="clear-jobs" class="btn btn-small" type="button">Clear finished</button>
+        <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+      </div>
+    </form>
+    <ul id="jobs-list" class="jobs"></ul>
   </dialog>
 
   <dialog id="problems" class="dialog">

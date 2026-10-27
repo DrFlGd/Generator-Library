@@ -27,6 +27,8 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/installer.js` | Downloads a distribution (release asset or repo tarball), unpacks it safely, records what was installed, compares against the newest tag/commit for updates. |
 | `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
+| `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python and pip packages such as WebMirror) into the data folder. |
+| `src/lib/jobs.js` | Tracks installs, mirrors and runtime downloads as jobs with progress, a log and an error, for the Jobs panel. |
 | `src/lib/library.js` | On-disk state: installs, favorites, recents, settings, user-added sources. |
 | `src/main/` | Electron main process, IPC surface, generator windows (sandboxed, no Node). |
 | `src/renderer/` | The UI: search, facets, cards, detail view, settings. Plain DOM, no framework. |
@@ -107,4 +109,4 @@ npm run dist:win         # Windows installer + portable exe (on Windows or via A
 - macOS packaging is wired in `package.json` but untested.
 - Launching installed executables and the WebMirror hand-off were tested with fakes, not on a Windows machine.
 - Per-app offline bundles for Generator-Standalone depend on the release step proposed above; until then those apps offer `mirror`.
-- A "Mirror" distribution needs Python and WebMirror on the machine. Bundling a WebMirror executable with the library is an option if that proves annoying.
+- A "Mirror" distribution needs Python and WebMirror; the library downloads a private Python (about 30 MB) and installs WebMirror into it on first use. Browser capture uses the installed Chrome or Edge.

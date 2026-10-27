@@ -13,6 +13,9 @@ import { checkForUpdate, installDistribution, uninstallDistribution } from '../l
 import { createStaticServer } from '../lib/server.js';
 import { currentPlatform, distributionKey, usableDistributions } from '../lib/manifest.js';
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
+import { createJobs } from '../lib/jobs.js';
+import { createRuntimes, WEBMIRROR_REQUIREMENT } from '../lib/runtimes.js';
+import { mergeRequires } from '../lib/manifest.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
@@ -28,6 +31,15 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   const emit = (channel, payload) => {
     for (const fn of listeners) fn(channel, payload);
   };
+  const jobs = createJobs({ emit });
+  // Runtime downloads are public files, so they go through a token-less client.
+  const runtimes = createRuntimes({ library, download: createGitHub().download });
+
+  // What a distribution needs installed first: the manifest's own requirements,
+  // the distribution's, and WebMirror for a mirror.
+  function requirementsOf(manifest, dist) {
+    return mergeRequires(manifest.requires, dist.requires, dist.kind === 'mirror' ? [WEBMIRROR_REQUIREMENT] : []);
+  }
 
   function manifestById(id) {
     const m = manifests.find((x) => x.id === id);
@@ -102,6 +114,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       recent: library.state.recent,
       installed: library.state.installed,
       running: [...servers.keys()],
+      jobs: jobs.list(),
+      runtimes: runtimes.status(),
       catalogSource,
       problems,
       facets: facets(manifests),
@@ -116,12 +130,15 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   async function install({ id, distKey }) {
     const manifest = manifestById(id);
     const dist = distributionOf(manifest, distKey);
-    const record = await installDistribution(manifest, dist, {
-      library,
-      github,
-      onProgress: (p) => emit('progress', { id, distKey, ...p }),
+    const verb = library.getInstalled(id, distKey) ? 'Updating' : 'Installing';
+    return jobs.run({ title: `${verb} ${manifest.name}`, kind: 'install', target: { id, distKey } }, async (job) => {
+      await runtimes.ensure(requirementsOf(manifest, dist), job);
+      return installDistribution(manifest, dist, {
+        library,
+        github,
+        onProgress: (p) => (p.received !== undefined ? job.progress(p) : job.log(p.message)),
+      });
     });
-    return record;
   }
 
   async function uninstall({ id, distKey }) {
@@ -161,6 +178,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       return { url: server.url };
     }
 
+    const needs = requirementsOf(manifest, distributionOf(manifest, distKey));
+    if (needs.length) await jobs.run({ title: `Preparing ${manifest.name}`, kind: 'runtime', target: { id, distKey } }, (job) => runtimes.ensure(needs, job));
     const target = path.join(record.dir, record.exec);
     if (record.install === 'installer') {
       // Installers run once; after that the installed program owns its own
@@ -200,14 +219,21 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   async function mirror({ id, distKey }) {
     const manifest = manifestById(id);
     const dist = distributionOf(manifest, distKey);
-    const { pythonPath, webmirrorHome } = library.state.settings;
+    return jobs.run({ title: `Mirroring ${manifest.name}`, kind: 'mirror', target: { id, distKey } }, (job) => mirrorJob(manifest, dist, job));
+  }
+
+  async function mirrorJob(manifest, dist, job) {
+    const { id } = manifest;
+    const distKey = distributionKey(dist);
+    const { python } = await runtimes.ensure(requirementsOf(manifest, dist), job);
+    job.log(`Capturing ${dist.url}`);
     const result = await mirrorSite({
       url: dist.url,
       githubPagesFiles: dist.githubPagesFiles,
       browserCapture: dist.browserCapture,
-      home: webmirrorHome,
-      python: pythonPath,
-      onProgress: (message) => emit('progress', { id, distKey, phase: 'mirror', message }),
+      home: library.state.settings.webmirrorHome,
+      interpreter: python,
+      onProgress: (message) => job.log(message),
     });
     const record = {
       id,
@@ -222,7 +248,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       sizeBytes: 0,
     };
     await library.setInstalled(record);
-    emit('progress', { id, distKey, phase: 'done', message: 'Mirrored' });
+    job.log(`Saved ${result.record.files ?? '?'} files from ${result.record.pages ?? '?'} pages`);
     return record;
   }
 
@@ -279,6 +305,16 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return { url: server.url };
   }
 
+  async function installRuntime() {
+    await jobs.run({ title: 'Installing Python and WebMirror', kind: 'runtime' }, (job) => runtimes.ensure([WEBMIRROR_REQUIREMENT], job));
+    return state();
+  }
+
+  async function removeRuntime() {
+    await runtimes.remove();
+    return state();
+  }
+
   async function shutdown() {
     for (const key of [...servers.keys()]) await stopServer(key);
   }
@@ -304,6 +340,10 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     },
     webmirrorSnapshots: () => listWebMirrorSnapshots(library.state.settings.webmirrorHome),
     openSnapshot,
+    installRuntime,
+    removeRuntime,
+    jobs: () => jobs.list(),
+    clearJobs: () => jobs.clearFinished(),
     subscribe: (fn) => listeners.add(fn),
     shutdown,
     userDataDir: library.dataDir,

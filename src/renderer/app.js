@@ -16,7 +16,8 @@ const state = {
   tags: new Set(),
   results: [],
   updates: new Map(), // `${id}/${distKey}` -> result
-  progress: new Map(), // `${id}/${distKey}` -> { phase, message, received, total }
+  jobs: [], // newest first, from main (jobs.js)
+  seenJobs: new Set(), // finished job ids the user has looked at in the jobs panel
   busy: new Set(),
   detailId: null,
 };
@@ -53,6 +54,15 @@ function installedRecords(id) {
 
 function hasUpdate(id) {
   return [...state.updates.values()].some((u) => u.id === id && u.hasUpdate);
+}
+
+// The newest job for one distribution, so its row can show progress or the error.
+function jobFor(id, distKey) {
+  return state.jobs.find((j) => j.target?.id === id && j.target?.distKey === distKey) ?? null;
+}
+
+function progressBar(job) {
+  return job.total ? el('div', { class: 'progress' }, el('div', { style: `width:${Math.round((100 * job.received) / job.total)}%` })) : el('div', { class: 'progress is-indeterminate' }, el('div', {}));
 }
 
 function generatorById(id) {
@@ -197,7 +207,7 @@ function renderDistribution(g, d) {
   const rk = recordKey(g.id, key);
   const record = state.data.installed[rk] ?? null;
   const usable = g.usable.includes(key);
-  const progress = state.progress.get(rk);
+  const job = jobFor(g.id, key);
   const update = state.updates.get(rk);
   const busy = state.busy.has(rk);
   const title = `${KIND_LABELS[d.kind] ?? d.kind}${d.platform ? ` · ${PLATFORM_LABELS[d.platform]}` : ''}`;
@@ -249,8 +259,9 @@ function renderDistribution(g, d) {
       { class: 'dist-info' },
       el('div', { class: 'dist-title' }, title),
       el('div', { class: 'dist-meta' }, metaParts.join(' · ')),
-      progress && progress.phase !== 'done'
-        ? el('div', {}, el('div', { class: 'dist-meta' }, progress.message), progress.total ? el('div', { class: 'progress' }, el('div', { style: `width:${Math.round((100 * progress.received) / progress.total)}%` })) : null)
+      job?.status === 'running' ? el('div', { class: 'dist-job' }, el('div', { class: 'dist-meta' }, job.message || job.title), progressBar(job)) : null,
+      job?.status === 'failed'
+        ? el('div', { class: 'dist-error' }, job.error, ' ', el('button', { class: 'link', type: 'button', onclick: () => openJobs(job.id) }, 'Show log'))
         : null,
     ),
     el('div', { class: 'dist-actions' }, actions),
@@ -270,7 +281,6 @@ async function perform(name, g, key) {
     setStatus(`${g.name}: ${error.message}`, 'error');
   } finally {
     state.busy.delete(rk);
-    state.progress.delete(rk);
     await reloadState({ keepSearch: true });
   }
 }
@@ -290,16 +300,17 @@ function renderDetail() {
   const media = $('detail-media');
   media.replaceChildren(...g.screenshots.slice(0, 6).map((src) => el('img', { src: /^https?:/.test(src) ? src : `https://raw.githubusercontent.com/${g.repo}/HEAD/${src.replace(/^\/+/, '')}`, alt: '', loading: 'lazy' })));
   media.hidden = g.screenshots.length === 0;
-  $('detail-tags').replaceChildren(...g.tags.map((t) => el('span', { class: 'tag' }, t)), g.process ? el('span', { class: 'tag' }, g.process) : null);
+  $('detail-tags').replaceChildren(...g.tags.map((t) => el('span', { class: 'tag' }, t)), ...(g.process ? [el('span', { class: 'tag' }, g.process)] : []));
   $('detail-description').textContent = g.description || g.summary || '';
   $('detail-dists').replaceChildren(...g.distributions.map((d) => renderDistribution(g, d)));
   const source = $('detail-source');
-  source.replaceChildren(
+  // replaceChildren writes a null as the text "null", so the optional parts go through el().
+  source.replaceChildren(el('span', {},
     el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.repo}` }) }, `github.com/${g.repo}`),
     g.upstream ? el('span', {}, ' · fork of ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.upstream}` }) }, g.upstream)) : null,
     g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
     g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : el('span', { class: 'muted' }, ' · described by the catalog (no generator.json in the repo yet)'),
-  );
+  ));
 }
 
 // ──────────────────────────────── settings ────────────────────────────────
@@ -325,6 +336,7 @@ function renderSettings() {
     ),
   );
   if (!state.data.sources.length) list.replaceChildren(el('li', { class: 'muted' }, 'None yet'));
+  renderRuntimes();
   call('webmirrorSnapshots')
     .then((snaps) => {
       const ul = $('snapshots-list');
@@ -336,6 +348,77 @@ function renderSettings() {
       if (!snaps.length) ul.replaceChildren(el('li', { class: 'muted' }, 'No WebMirror snapshots found'));
     })
     .catch(() => {});
+}
+
+function renderRuntimes() {
+  const { python } = state.data.runtimes;
+  const box = $('runtimes');
+  const running = state.jobs.some((j) => j.kind === 'runtime' && j.status === 'running');
+  const runtimeAction = (label, name) =>
+    el('button', { class: 'btn btn-small', type: 'button', disabled: running, onclick: () => call(name).catch((e) => setStatus(e.message, 'error')).finally(() => reloadState()) }, label);
+  let line;
+  if (python.configured) line = el('span', {}, 'Using your Python: ', el('code', {}, python.configured));
+  else if (python.managed) line = el('span', {}, `Python ${python.managed.version}`, python.managed.packages.length ? ` with ${python.managed.packages.map((p) => p.split(/[\s@[]/)[0]).join(', ')}` : '', el('small', { class: 'muted' }, ` · ${python.managed.dir}`));
+  else line = el('span', { class: 'muted' }, `Not installed. Python ${python.build} downloads automatically the first time a generator needs it.`);
+  box.replaceChildren(
+    el('li', {}, line, el('div', { class: 'row row-tight' }, python.configured ? null : runtimeAction(python.managed ? 'Repair' : 'Install now', 'installRuntime'), python.managed && !python.configured ? runtimeAction('Remove', 'removeRuntime') : null)),
+  );
+}
+
+// ────────────────────────────────── jobs ──────────────────────────────────
+
+function renderJobsButton() {
+  const running = state.jobs.filter((j) => j.status === 'running').length;
+  const failed = state.jobs.filter((j) => j.status === 'failed' && !state.seenJobs.has(j.id)).length;
+  const button = $('open-jobs');
+  button.classList.toggle('is-busy', running > 0);
+  button.classList.toggle('is-failed', failed > 0 && running === 0);
+  $('jobs-count').textContent = running ? String(running) : failed ? '!' : '';
+  $('jobs-count').hidden = !running && !failed;
+}
+
+const JOB_STATUS = { running: 'Running', done: 'Done', failed: 'Failed' };
+
+function renderJobs(focusId = null) {
+  const list = $('jobs-list');
+  if (!state.jobs.length) {
+    list.replaceChildren(el('li', { class: 'muted' }, 'Nothing has run yet. Installs, mirrors and downloads show up here.'));
+    return;
+  }
+  list.replaceChildren(
+    ...state.jobs.map((job) =>
+      el(
+        'li',
+        { class: `job is-${job.status}` },
+        el('div', { class: 'job-head' }, el('strong', {}, job.title), el('span', { class: `badge badge-${job.status}` }, JOB_STATUS[job.status])),
+        job.status === 'running' ? el('div', {}, el('div', { class: 'dist-meta' }, job.message), progressBar(job)) : null,
+        job.status === 'failed' ? el('div', { class: 'dist-error' }, job.error) : null,
+        job.log.length
+          ? el('details', { open: job.id === focusId || job.status === 'running' }, el('summary', {}, `Log · ${job.log.length} line${job.log.length === 1 ? '' : 's'}`), el('pre', { class: 'job-log' }, job.log.join('\n')))
+          : null,
+      ),
+    ),
+  );
+  for (const job of state.jobs) if (job.status !== 'running') state.seenJobs.add(job.id);
+  renderJobsButton();
+}
+
+function openJobs(focusId = null) {
+  renderJobs(focusId);
+  const dialog = $('jobs');
+  if (!dialog.open) dialog.showModal();
+}
+
+function setJobs(list) {
+  const before = new Map(state.jobs.map((j) => [j.id, j.status]));
+  state.jobs = list;
+  renderJobsButton();
+  if ($('jobs').open) renderJobs();
+  if ($('detail').open) renderDetail();
+  if ($('settings').open) renderRuntimes();
+  // A job that fails while its row is not on screen still has to be noticed.
+  const failed = list.find((j) => j.status === 'failed' && before.get(j.id) === 'running');
+  if (failed && !$('detail').open) setStatus(`${failed.title} failed: ${failed.error}`, 'error');
 }
 
 $('settings-form').addEventListener('submit', async (event) => {
@@ -377,6 +460,7 @@ $('add-source').addEventListener('submit', async (event) => {
 
 async function reloadState({ keepSearch = true } = {}) {
   state.data = await call('getState');
+  setJobs(state.data.jobs ?? []);
   renderFacets();
   if (keepSearch) await runSearch();
   if ($('detail').open) renderDetail();
@@ -437,15 +521,15 @@ $('show-problems').addEventListener('click', () => {
   $('problems').showModal();
 });
 
-api.on('progress', (payload) => {
-  state.progress.set(recordKey(payload.id, payload.distKey), payload);
-  if ($('detail').open) renderDetail();
-});
+api.on('jobs:changed', setJobs);
+$('open-jobs').addEventListener('click', () => openJobs());
+$('clear-jobs').addEventListener('click', async () => setJobs(await call('clearJobs')));
 api.on('catalog:changed', () => reloadState());
 
 (async function boot() {
   try {
     state.data = await call('getState');
+    setJobs(state.data.jobs ?? []);
     renderFacets();
     await runSearch();
     if (state.data.generators.length === 0) setStatus('Reading catalog from GitHub…');

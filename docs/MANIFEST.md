@@ -40,6 +40,7 @@ A JSON Schema for editors lives at [`schema/generator.schema.json`](../schema/ge
 | `homepage`, `license`, `author`, `version` | | Informational. |
 | `repo` | | `owner/name`; defaults to the repository the manifest was read from. |
 | `upstream` | | For forks, the original repository (shown as a link). |
+| `requires` | | Runtimes to install before the generator is installed or launched (below). Also allowed on a single distribution. |
 
 ## Distributions
 
@@ -85,7 +86,17 @@ Updates: release bundles update when a newer release carries a matching asset; r
 { "kind": "mirror", "url": "https://bruceborrett.github.io/easy-enclosure/", "githubPagesFiles": false, "browserCapture": true }
 ```
 
-For generators that have no downloadable build yet. The library runs [WebMirror](https://github.com/DrFlGd/WebMirror)'s engine headlessly (Python 3.10+ with the `webmirror` package installed) and registers the snapshot like an installed bundle. `githubPagesFiles` turns on WebMirror's "include all published repository files" mode for GitHub Pages sites with generated asset names.
+For generators that have no downloadable build yet. The library runs [WebMirror](https://github.com/DrFlGd/WebMirror)'s engine headlessly and registers the snapshot like an installed bundle. `githubPagesFiles` turns on WebMirror's "include all published repository files" mode for GitHub Pages sites with generated asset names. A mirror needs Python and WebMirror; the library installs both itself the first time (see `requires`), so the manifest does not have to say so.
+
+## `requires`: runtimes the library installs
+
+```json
+"requires": [
+  { "runtime": "python", "packages": ["numpy", { "spec": "mytool @ https://github.com/me/mytool/archive/refs/heads/main.zip", "import": "mytool" }] }
+]
+```
+
+Before installing or launching, the library makes sure each runtime is there, privately in its own data folder, never system-wide. `python` is a [python-build-standalone](https://github.com/astral-sh/python-build-standalone) CPython 3.12 checked against its published SHA-256, and `packages` are pip requirement specs installed into it once. Prefer archive URLs to `git+https://` so the user does not need git. Give `import` when the module name differs from the package, so the library can check a Python the user set in Settings. Progress and errors show in the Jobs panel.
 
 ## Collections
 

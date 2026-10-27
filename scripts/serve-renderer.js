@@ -27,6 +27,8 @@ const mock = {
   favorites: [],
   recent: [],
   sources: [],
+  jobs: [],
+  python: null,
   settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false },
 };
 
@@ -41,11 +43,20 @@ function state() {
     recent: mock.recent,
     installed: mock.installed,
     running: [],
+    jobs: mock.jobs,
+    runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, build: '3.12 (mock)' } },
     catalogSource: 'mock',
     problems,
     facets: facets(manifests),
     generators: manifests.map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
   };
+}
+
+function mockJob(title, target, { failed = '' } = {}) {
+  const now = Date.now();
+  const job = { id: `job-${mock.jobs.length + 1}`, title, kind: 'install', target, status: failed ? 'failed' : 'done', message: 'Done', received: 0, total: 0, log: ['Looking up the latest build on GitHub', 'Downloading', failed ? `Failed: ${failed}` : 'Installed'], error: failed, startedAt: now, finishedAt: now };
+  mock.jobs.unshift(job);
+  if (failed) throw new Error(failed);
 }
 
 const handlers = {
@@ -56,6 +67,7 @@ const handlers = {
     const m = manifests.find((x) => x.id === id);
     const record = { id, name: m.name, distKey, kind: distKey.split(':')[0], version: 'mock-1.0', source: { type: 'release', tag: 'mock-1.0' }, dir: `/mock/${id}`, installedAt: new Date().toISOString(), sizeBytes: 12345678 };
     mock.installed[`${id}/${distKey}`] = record;
+    mockJob(`Installing ${m.name}`, { id, distKey });
     return record;
   },
   uninstall: ({ id, distKey }) => delete mock.installed[`${id}/${distKey}`],
@@ -64,7 +76,9 @@ const handlers = {
     mock.recent = [id, ...mock.recent.filter((x) => x !== id)];
     return { url: '' };
   },
-  mirror: ({ id, distKey }) => handlers.install({ id, distKey }),
+  // MOCK_MIRROR_FAIL=1 shows how a failed job looks on its distribution row.
+  mirror: ({ id, distKey }) =>
+    process.env.MOCK_MIRROR_FAIL ? mockJob(`Mirroring ${manifests.find((x) => x.id === id).name}`, { id, distKey }, { failed: 'Browser capture needs Chrome or Edge.' }) : handlers.install({ id, distKey }),
   checkUpdates: () => Object.values(mock.installed).map((r) => ({ id: r.id, distKey: r.distKey, hasUpdate: true, latest: { version: 'mock-1.1', publishedAt: '', notes: '', htmlUrl: '' } })),
   toggleFavorite: ({ id }) => {
     mock.favorites = mock.favorites.includes(id) ? mock.favorites.filter((x) => x !== id) : [...mock.favorites, id];
@@ -86,6 +100,17 @@ const handlers = {
   openFolder: () => '',
   webmirrorSnapshots: () => [],
   openSnapshot: () => ({ url: '' }),
+  installRuntime: () => {
+    mock.python = { version: '3.12.16', dir: '/mock/runtimes/python', packages: ['webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip'] };
+    mockJob('Installing Python and WebMirror', null);
+    return state();
+  },
+  removeRuntime: () => {
+    mock.python = null;
+    return state();
+  },
+  jobs: () => mock.jobs,
+  clearJobs: () => (mock.jobs = mock.jobs.filter((j) => j.status === 'running')),
 };
 
 const bridge = `
