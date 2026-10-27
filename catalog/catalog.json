@@ -686,6 +686,297 @@
           }
         ]
       }
+    },
+    {
+      "repo": "YokiToki/printkit",
+      "fallback": {
+        "id": "printkit",
+        "name": "PrintKit",
+        "summary": "Parametric Gridfinity bins, baseplates and cutouts, image or shape keychains, and 10-inch rack panels, with a live 3D preview and STL or 3MF export.",
+        "description": "A client-only parametric generator built on the manifold-3d CSG kernel compiled to WebAssembly. Nothing is uploaded; every model is computed in the browser.",
+        "tags": [
+          "gridfinity",
+          "organizer",
+          "keychain",
+          "rack",
+          "stl",
+          "3mf"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://printkit.tamat.dev/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://printkit.tamat.dev/",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://printkit.tamat.dev/",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
+    },
+    {
+      "repo": "joseprio/boxmaker",
+      "fallback": {
+        "id": "boxmaker",
+        "name": "BoxMaker",
+        "summary": "More than 30 laser-cut box and stand types, from finger-joint and hinged boxes to drawers, trays and phone stands, with kerf compensation and SVG or DXF export.",
+        "description": "A fully client-side box generator whose geometry engine is a port of parts of boxes.py. It shows a live 3D preview and a sheet layout before export.",
+        "tags": [
+          "box",
+          "laser-cut",
+          "finger-joint",
+          "svg",
+          "dxf"
+        ],
+        "process": "laser",
+        "license": "GPL-3.0-only",
+        "homepage": "https://joseprio.github.io/boxmaker/",
+        "icon": "dist/favicon.svg",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://joseprio.github.io/boxmaker/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "repo",
+              "path": "dist"
+            },
+            "entry": "index.html",
+            "notes": "The built app the author commits in dist/."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "hermes98761234/laser-cut-box-generator",
+      "fallback": {
+        "id": "laser-cut-box-generator",
+        "name": "Laser-Cut Box Generator",
+        "summary": "Finger-joint boxes with closed, open, lift-off, sliding or hinged lids and dividers, plus rounded living-hinge boxes, nested onto sheets with kerf compensation.",
+        "description": "Designs boxes for the laser cutter in the browser and exports one SVG or DXF per sheet, in millimetres, with a folded 3D preview.",
+        "tags": [
+          "box",
+          "laser-cut",
+          "finger-joint",
+          "living-hinge",
+          "svg",
+          "dxf"
+        ],
+        "process": "laser",
+        "license": "MIT",
+        "homepage": "https://hermes98761234.github.io/laser-cut-box-generator/",
+        "icon": "public/icon-512.png",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://hermes98761234.github.io/laser-cut-box-generator/",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://hermes98761234.github.io/laser-cut-box-generator/",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
+    },
+    {
+      "repo": "metiutek/lithophane-studio",
+      "fallback": {
+        "id": "lithophane-studio",
+        "name": "Lithophane Studio",
+        "summary": "Turn a photo into a lithophane that glows when backlit: flat or curved panels and cylinder lampshades, exported as watertight STL or OBJ.",
+        "description": "Runs entirely in the browser with a live 3D preview and a backlit view. Nothing is uploaded.",
+        "tags": [
+          "lithophane",
+          "photo",
+          "lamp",
+          "stl"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://metiutek.github.io/lithophane-studio/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://metiutek.github.io/lithophane-studio/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "entry": "index.html",
+            "notes": "The app is plain static files at the repository root; its web fonts still load online."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "yomboprime/lithofun",
+      "fallback": {
+        "id": "lithofun",
+        "name": "Lithofun",
+        "summary": "A simple photo-to-lithophane converter with width, thickness and curvature controls and a backlit preview, exported as STL.",
+        "tags": [
+          "lithophane",
+          "photo",
+          "stl"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://yomboprime.github.io/lithofun/lithofun.html",
+        "icon": "favicon.png",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://yomboprime.github.io/lithofun/lithofun.html",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "entry": "lithofun.html",
+            "notes": "A static HTML5 app committed as-is."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "mitchscobell/text-to-stl",
+      "fallback": {
+        "id": "text-to-stl",
+        "name": "Text to STL",
+        "summary": "Extruded 3D text in any font, with a live preview, exported as binary STL.",
+        "tags": [
+          "text",
+          "sign",
+          "font",
+          "stl"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://text2stl.mscob.com/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://text2stl.mscob.com/",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://text2stl.mscob.com/",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
+    },
+    {
+      "repo": "cbik6/stlmill",
+      "fallback": {
+        "id": "stlmill",
+        "name": "STLmill",
+        "summary": "Browser-based generators for small printable gifts, starting with a keyboard-switch clicker that carries your text, logo or image; lithophane and QR tag tools are on the way.",
+        "tags": [
+          "clicker",
+          "fidget",
+          "keychain",
+          "stl"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://cbik6.github.io/stlmill/",
+        "icon": "public/favicon.svg",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://cbik6.github.io/stlmill/",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://cbik6.github.io/stlmill/",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
+    },
+    {
+      "repo": "openscad/openscad-playground",
+      "fallback": {
+        "id": "openscad-playground",
+        "name": "OpenSCAD Playground",
+        "summary": "OpenSCAD compiled to WebAssembly, with customizer support and the standard libraries built in: open any customizable .scad model and generate it without installing OpenSCAD.",
+        "description": "Most parametric Gridfinity and organizer models on Printables and MakerWorld are OpenSCAD customizers; this runs them in the browser with the fast Manifold backend.",
+        "tags": [
+          "openscad",
+          "customizer",
+          "cad",
+          "stl"
+        ],
+        "process": "tool",
+        "category": "cad",
+        "license": "GPL-3.0-or-later",
+        "homepage": "https://ochafik.com/openscad2",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://ochafik.com/openscad2",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://ochafik.com/openscad2",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
+    },
+    {
+      "repo": "jscad/OpenJSCAD.org",
+      "fallback": {
+        "id": "jscad",
+        "name": "JSCAD",
+        "summary": "Parametric 2D and 3D design in JavaScript, in the browser: load a .jscad script, adjust its parameters and export STL, DXF, SVG and more.",
+        "description": "The same engine Easy Enclosure is built on; useful for running JavaScript CAD generators shared as scripts.",
+        "tags": [
+          "jscad",
+          "javascript",
+          "cad",
+          "stl",
+          "dxf"
+        ],
+        "process": "tool",
+        "category": "cad",
+        "license": "MIT",
+        "homepage": "https://openjscad.xyz/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://openjscad.xyz/",
+            "label": "Open online"
+          },
+          {
+            "kind": "mirror",
+            "url": "https://openjscad.xyz/",
+            "label": "Mirror for offline use"
+          }
+        ]
+      }
     }
   ]
 }
