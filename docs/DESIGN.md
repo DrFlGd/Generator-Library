@@ -27,7 +27,9 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/installer.js` | Downloads a distribution (release asset or repo tarball), unpacks it safely, records what was installed, compares against the newest tag/commit for updates. |
 | `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. Each app gets a port derived from its id, so its origin, and with it the localStorage and IndexedDB it saved, is the same every launch. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
-| `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python and pip packages such as WebMirror) into the data folder. |
+| `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python with pip packages such as WebMirror, and a private Node.js for builds from source) into the data folder. |
+| `src/lib/build.js` | Builds a web app from its repository (npm install with scripts off, then the manifest's steps) with the private Node.js. |
+| `src/main/location.js` | Picks the data folder: beside a portable app, app-data for the installed one, or wherever Settings moved it; finishes moves before Chromium starts. |
 | `src/lib/jobs.js` | Tracks installs, mirrors and runtime downloads as jobs with progress, a log and an error, for the Jobs panel. |
 | `src/lib/describe.js` | Turns a repository or link typed into **Add a project** into a manifest: the published one, or one inferred from the homepage, Pages site and release assets. |
 | `src/lib/library.js` | On-disk state: installs, favorites, recents, settings, user-added sources, hidden projects, removed catalog sources. |

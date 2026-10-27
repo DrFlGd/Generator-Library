@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('library', {
   removeProject: invoke('projects:remove'),
   restoreProject: invoke('projects:restore'),
   setHidden: invoke('projects:setHidden'),
+  chooseDataFolder: invoke('library:chooseFolder'),
+  moveData: invoke('library:move'),
   installRuntime: invoke('runtimes:install'),
   removeRuntime: invoke('runtimes:remove'),
   jobs: invoke('jobs:list'),

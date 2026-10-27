@@ -15,6 +15,8 @@ import { currentPlatform, distributionKey, usableDistributions } from '../lib/ma
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
 import { createJobs } from '../lib/jobs.js';
 import { createRuntimes, WEBMIRROR_REQUIREMENT } from '../lib/runtimes.js';
+import { buildProject } from '../lib/build.js';
+import { checkMove, copyLibrary, PORTABLE_FOLDER, pointerPath, writePointer } from './location.js';
 import { mergeRequires, normalizeManifest } from '../lib/manifest.js';
 import { describeProject as describeInput } from '../lib/describe.js';
 import { sourceKey } from '../lib/library.js';
@@ -22,7 +24,7 @@ import { sourceKey } from '../lib/library.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
 
-export function createServices({ library, app, openGeneratorWindow, openExternal, shell }) {
+export function createServices({ library, app, openGeneratorWindow, openExternal, shell, location = null, relaunch = () => {}, chooseFolder = async () => '' }) {
   let github = createGitHub({ token: library.state.settings.githubToken });
   let manifests = [];
   let problems = [];
@@ -136,6 +138,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       running: [...servers.keys()],
       jobs: jobs.list(),
       runtimes: runtimes.status(),
+      dataLocation: dataLocation(),
       catalogSource,
       problems,
       hidden: library.state.hidden,
@@ -156,11 +159,12 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     const dist = distributionOf(manifest, distKey);
     const verb = tag ? `Installing ${tag} of` : library.getInstalled(id, distKey) ? 'Updating' : 'Installing';
     return jobs.run({ title: `${verb} ${manifest.name}`, kind: 'install', target: { id, distKey } }, async (job) => {
-      await runtimes.ensure(requirementsOf(manifest, dist), job);
+      const { node } = await runtimes.ensure(requirementsOf(manifest, dist), job);
       return installDistribution(manifest, dist, {
         library,
         github,
         tag,
+        builder: node ? (dir, build, hooks) => buildProject(dir, build, { node, ...hooks }) : undefined,
         onProgress: (p) => (p.received !== undefined ? job.progress(p) : job.log(p.message)),
       });
     });
@@ -298,7 +302,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       url: dist.url,
       githubPagesFiles: dist.githubPagesFiles,
       browserCapture: dist.browserCapture,
-      home: library.state.settings.webmirrorHome,
+      home: webmirrorHome(),
       interpreter: python,
       onProgress: (message) => job.log(message),
     });
@@ -428,7 +432,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   }
 
   async function openSnapshot({ key }) {
-    const snapshots = await listWebMirrorSnapshots(library.state.settings.webmirrorHome);
+    const snapshots = await listWebMirrorSnapshots(webmirrorHome());
     const snap = snapshots.find((s) => s.key === key);
     if (!snap) throw new Error('Snapshot not found');
     const serverKey = `webmirror/${key}`;
@@ -444,14 +448,55 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return { url: server.url };
   }
 
-  async function installRuntime() {
-    await jobs.run({ title: 'Installing Python and WebMirror', kind: 'runtime' }, (job) => runtimes.ensure([WEBMIRROR_REQUIREMENT], job));
+  async function installRuntime({ runtime = 'python' } = {}) {
+    if (runtime === 'node') await jobs.run({ title: 'Installing Node.js', kind: 'runtime' }, (job) => runtimes.ensure([{ runtime: 'node' }], job));
+    else await jobs.run({ title: 'Installing Python and WebMirror', kind: 'runtime' }, (job) => runtimes.ensure([WEBMIRROR_REQUIREMENT], job));
     return state();
   }
 
-  async function removeRuntime() {
-    await runtimes.remove();
+  async function removeRuntime({ runtime = 'python' } = {}) {
+    await runtimes.remove(runtime === 'node' ? 'node' : 'python');
     return state();
+  }
+
+  // WebMirror keeps its snapshots inside the library folder unless Settings names
+  // another place, so a portable library carries its mirrors with it.
+  function webmirrorHome() {
+    return library.state.settings.webmirrorHome || path.join(library.dataDir, 'webmirror');
+  }
+
+  function dataLocation() {
+    if (!location) return { dir: library.dataDir, mode: 'default', portable: false, suggested: '' };
+    const besideApp = location.portable ? path.join(location.base, PORTABLE_FOLDER) : '';
+    return { dir: library.dataDir, mode: location.mode, portable: location.portable, suggested: besideApp && path.resolve(besideApp) !== path.resolve(library.dataDir) ? besideApp : '' };
+  }
+
+  async function chooseDataFolder() {
+    return chooseFolder({ title: 'Choose where the library keeps its apps and data', defaultPath: location?.base });
+  }
+
+  // Copy the library to `dir` and restart into it. A folder that already holds a
+  // library is switched to without copying. The browser profile follows at the
+  // next launch (location.js finishMove), and the old folder is deleted then.
+  async function moveData({ dir }) {
+    if (!location) throw new Error('Moving the library is not available here');
+    const target = checkMove(library.dataDir, dir);
+    const existing = await fs.access(path.join(target, 'library.json')).then(() => true, () => false);
+    if (jobs.list().some((j) => j.status === 'running')) throw new Error('Wait for the running jobs to finish first');
+    await jobs.run({ title: existing ? 'Switching library folder' : 'Moving the library', kind: 'move' }, async (job) => {
+      await shutdown();
+      if (!existing) {
+        job.log(`Copying ${library.dataDir} to ${target}`);
+        const files = await copyLibrary(library.dataDir, target, { onProgress: (n) => job.progress({ message: `Copied ${n} files` }) });
+        job.log(`Copied ${files} files`);
+      }
+      const pointer = { dataDir: pointerPath(location.base, target) };
+      if (!existing) Object.assign(pointer, { moveProfileFrom: pointerPath(location.base, location.profileDir), removeAfterMove: pointerPath(location.base, library.dataDir) });
+      writePointer(location.base, pointer);
+      job.log('Restarting the library');
+    });
+    setTimeout(relaunch, 300);
+    return { relaunching: true, dir: target };
   }
 
   async function shutdown() {
@@ -477,7 +522,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       const record = library.getInstalled(id, distKey);
       return record ? shell.openPath(record.dir) : Promise.resolve('not installed');
     },
-    webmirrorSnapshots: () => listWebMirrorSnapshots(library.state.settings.webmirrorHome),
+    webmirrorSnapshots: () => listWebMirrorSnapshots(webmirrorHome()),
     openSnapshot,
     installRuntime,
     removeRuntime,
@@ -492,6 +537,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     jobs: () => jobs.list(),
     clearJobs: () => jobs.clearFinished(),
     subscribe: (fn) => listeners.add(fn),
+    chooseDataFolder,
+    moveData,
     shutdown,
     userDataDir: library.dataDir,
   };

@@ -26,6 +26,8 @@ const CHANNELS = {
   'projects:remove': 'removeProject',
   'projects:restore': 'restoreProject',
   'projects:setHidden': 'setHidden',
+  'library:chooseFolder': 'chooseDataFolder',
+  'library:move': 'moveData',
   'runtimes:install': 'installRuntime',
   'runtimes:remove': 'removeRuntime',
   'jobs:list': 'jobs',

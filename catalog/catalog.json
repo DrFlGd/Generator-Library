@@ -687,9 +687,23 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://printkit.tamat.dev/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "dist",
+              "steps": [
+                [
+                  "npx",
+                  "vite",
+                  "build"
+                ]
+              ]
+            },
+            "spa": true,
+            "notes": "Built on your computer from the repository's source with the library's own Node.js, so the 3D engine and every tool are included. The depth-map models download from Hugging Face the first time you use them."
           }
         ]
       }
@@ -757,9 +771,23 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://hermes98761234.github.io/laser-cut-box-generator/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "dist",
+              "steps": [
+                [
+                  "npx",
+                  "vite",
+                  "build"
+                ]
+              ]
+            },
+            "spa": true,
+            "notes": "Built on your computer from the repository's source with the library's own Node.js."
           }
         ]
       }
@@ -853,9 +881,27 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://text2stl.mscob.com/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "dist",
+              "steps": [
+                [
+                  "node",
+                  "scripts/generate-version.js"
+                ],
+                [
+                  "npx",
+                  "webpack",
+                  "--mode=production"
+                ]
+              ]
+            },
+            "spa": true,
+            "notes": "Built on your computer from the repository's source with the library's own Node.js."
           }
         ]
       }
@@ -883,9 +929,23 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://cbik6.github.io/stlmill/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "dist",
+              "steps": [
+                [
+                  "npx",
+                  "vite",
+                  "build"
+                ]
+              ]
+            },
+            "spa": true,
+            "notes": "Built on your computer from the repository's source with the library's own Node.js."
           }
         ]
       }

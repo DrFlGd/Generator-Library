@@ -63,7 +63,8 @@ function state() {
         return { key: source.repo, kind: 'repo', origin: 'catalog', removed: mock.removed.includes(source.repo), name: gens.length === 1 ? gens[0].name : source.fallback?.name ?? source.repo, generators: gens.map((g) => ({ id: g.id, name: g.name, hidden: mock.hidden.includes(g.id), installed: Object.values(mock.installed).some((r) => r.id === g.id) })) };
       }),
     ],
-    runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, build: '3.12 (mock)' } },
+    runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, build: '3.12 (mock)' }, node: { managed: null, build: '24 (mock)' } },
+    dataLocation: { dir: 'E:\\Generator Library\\Generator Library Data', mode: 'legacy', portable: true, suggested: 'E:\\Generator Library\\Generator Library Data' },
     catalogSource: 'mock',
     problems,
     facets: facets(manifests),
@@ -147,6 +148,8 @@ const handlers = {
   openFolder: () => '',
   webmirrorSnapshots: () => [],
   openSnapshot: () => ({ url: '' }),
+  chooseDataFolder: () => '',
+  moveData: ({ dir }) => ({ relaunching: true, dir }),
   installRuntime: () => {
     mock.python = { version: '3.12.16', dir: '/mock/runtimes/python', packages: ['webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip'] };
     mockJob('Installing Python and WebMirror', null);

@@ -3,9 +3,12 @@
 //
 // A repository that publishes generator.json (or generator-library.json) is used
 // as is. One that does not is described from what GitHub already knows: its
-// homepage or Pages site becomes an online link and a mirror, and the assets of
-// its newest release become offline bundles and desktop apps. A plain link
-// becomes an online entry plus a mirror.
+// homepage or Pages site becomes an online link, the assets of its newest
+// release become offline bundles and desktop apps, and a web app with an npm
+// build script is built from its source. Only when there is no offline bundle
+// and no source to build is the site captured with a mirror, since a mirror
+// misses what a page loads on demand. A plain link becomes an online entry plus
+// a mirror.
 
 import { isValidRepo } from './manifest.js';
 
@@ -110,6 +113,17 @@ export function releaseDistributions(releases) {
   return out;
 }
 
+// A build recipe for a repository's package.json, or null when it has no build
+// script. Vite builds get a relative base so they work from the library's local
+// server whatever base their Pages deploy uses; Create React App builds to build/.
+export function inferBuild(pkg) {
+  if (!pkg || typeof pkg !== 'object' || typeof pkg.scripts?.build !== 'string') return null;
+  const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  const output = deps['react-scripts'] ? 'build' : 'dist';
+  const steps = deps.vite ? [['npm', 'run', 'build', '--', '--base', './']] : [['npm', 'run', 'build']];
+  return { output, steps };
+}
+
 // Describe a GitHub repository. `github` is the client from github.js.
 export async function describeRepo(repo, github) {
   for (const path of ['generator.json', 'generator-library.json']) {
@@ -127,7 +141,16 @@ export async function describeRepo(repo, github) {
   const site = /^https?:\/\//.test(info.homepage) ? info.homepage : info.hasPages ? pagesUrl(repo) : '';
   if (site) distributions.push({ kind: 'web', url: site });
   distributions.push(...releaseDistributions(releases));
-  if (site) distributions.push({ kind: 'mirror', url: site });
+  if (!distributions.some((d) => d.kind === 'bundle')) {
+    let build = null;
+    try {
+      build = inferBuild(await github.readJson(repo, 'package.json'));
+    } catch {
+      /* no package.json to read */
+    }
+    if (build) distributions.push({ kind: 'bundle', from: { type: 'repo' }, build, spa: true });
+    else if (site) distributions.push({ kind: 'mirror', url: site });
+  }
   if (!distributions.length) {
     throw new Error(`${repo} has no website, Pages site or release downloads to run. Add a generator.json to it to say how it runs.`);
   }
