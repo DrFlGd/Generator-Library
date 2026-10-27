@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { zipSync, strToU8 } from 'fflate';
 import { Library } from '../src/lib/library.js';
 import { normalizeManifest } from '../src/lib/manifest.js';
-import { checkForUpdate, installDistribution, uninstallDistribution } from '../src/lib/installer.js';
+import { checkForUpdate, installDistribution, removeVersion, uninstallDistribution } from '../src/lib/installer.js';
 
 async function freshLibrary() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'genlib-lib-'));
@@ -131,4 +131,54 @@ test('library state round-trips favorites, recents, sources and settings', async
   assert.equal(again.state.sources.length, 1);
   assert.equal(again.state.settings.githubToken, 't');
   assert.equal(again.state.settings.catalogRepo, 'DrFlGd/Generator-Library');
+});
+
+test('updates keep earlier versions to switch back to, up to the limit', async () => {
+  const library = await freshLibrary();
+  const zipBytes = zipSync({ 'index.html': strToU8('<h1>app</h1>') });
+  let newest = 'v1';
+  const github = {
+    ...fakeGitHub({ zipBytes }),
+    async resolveReleaseAsset(repo, { tag }) {
+      const t = tag && tag !== 'latest' ? tag : newest;
+      return { release: { tag: t, name: t, publishedAt: `2026-10-0${t.slice(1)}T00:00:00Z`, body: '', htmlUrl: '' }, asset: { name: 'web.zip', url: 'asset://1', size: zipBytes.length } };
+    },
+  };
+  const { manifest } = normalizeManifest({ id: 'app', name: 'App', repo: 'o/r', distributions: [{ kind: 'bundle', from: { type: 'release', asset: 'web.zip' } }] });
+  const dist = manifest.distributions[0];
+  const install = (options = {}) => installDistribution(manifest, dist, { library, github, keep: 1, ...options });
+  const exists = (dir) => fs.access(dir).then(() => true, () => false);
+
+  const v1 = await install();
+  newest = 'v2';
+  const v2 = await install();
+  assert.notEqual(v1.dir, v2.dir);
+  assert.equal(library.getInstalled('app', dist.key).version, 'v2');
+  assert.deepEqual(library.keptFor('app', dist.key).map((r) => r.version), ['v1']);
+  assert.ok(await exists(v1.dir));
+
+  newest = 'v3';
+  const v3 = await install();
+  assert.deepEqual(library.keptFor('app', dist.key).map((r) => r.version), ['v2']);
+  assert.equal(await exists(v1.dir), false, 'versions beyond the limit are deleted');
+
+  await library.useKept('app', dist.key, 'v2');
+  assert.equal(library.getInstalled('app', dist.key).version, 'v2');
+  assert.equal(library.getInstalled('app', dist.key).pinned, true);
+  assert.deepEqual(library.keptFor('app', dist.key).map((r) => r.version), ['v3']);
+
+  const back = await install({ tag: 'v1' });
+  assert.equal(back.pinned, true);
+  assert.equal(library.getInstalled('app', dist.key).version, 'v1');
+  assert.deepEqual(library.keptFor('app', dist.key).map((r) => r.version), ['v3'], 'the oldest kept build goes first');
+  assert.equal(await exists(v2.dir), false);
+  assert.equal(await removeVersion('app', dist.key, 'v3', { library }), true);
+  assert.equal(await exists(v3.dir), false);
+  assert.deepEqual(library.keptFor('app', dist.key), []);
+
+  await uninstallDistribution(library.getInstalled('app', dist.key), { library });
+  assert.equal(await exists(back.dir), false);
+  assert.equal(await exists(v3.dir), false);
+  assert.equal(library.getInstalled('app', dist.key), null);
+  assert.deepEqual(library.keptFor('app', dist.key), []);
 });

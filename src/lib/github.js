@@ -137,19 +137,25 @@ export function createGitHub({ token = '', fetchImpl = globalThis.fetch, userAge
     }));
   }
 
-  // Pick the release a distribution points at. `tag` is "latest", an exact tag, or
-  // a glob such as "desktop-v*" (newest matching non-draft release wins). The asset
-  // glob must match one of its files; a release without the asset is skipped so a
-  // repo that publishes both web and desktop releases under different tags works.
-  async function resolveReleaseAsset(repo, { tag = 'latest', asset, prerelease = false }) {
+  // Every release a distribution can install, newest first, each with its
+  // matching asset. `tag` is "latest" (any release), an exact tag, or a glob such
+  // as "desktop-v*". A release without the asset is skipped so a repo that
+  // publishes both web and desktop releases under different tags works.
+  async function matchingReleases(repo, { tag = 'latest', asset, prerelease = false }) {
     const all = (await releases(repo)).filter((r) => !r.draft && (prerelease || !r.prerelease));
     const candidates = tag === 'latest' ? all : all.filter((r) => r.tag === tag || matchesGlob(r.tag, tag));
     candidates.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
-    for (const release of candidates) {
+    return candidates.flatMap((release) => {
       const match = release.assets.find((a) => matchesGlob(a.name, asset));
-      if (match) return { release, asset: match };
-    }
-    throw new GitHubError(`No release of ${repo} (tag ${tag}) has an asset matching "${asset}"`, { status: 404 });
+      return match ? [{ release, asset: match }] : [];
+    });
+  }
+
+  // The release a distribution points at: the newest of matchingReleases.
+  async function resolveReleaseAsset(repo, options) {
+    const [newest] = await matchingReleases(repo, options);
+    if (newest) return newest;
+    throw new GitHubError(`No release of ${repo} (tag ${options.tag ?? 'latest'}) has an asset matching "${options.asset}"`, { status: 404 });
   }
 
   // Stream a URL into a file. Release asset downloads need the octet-stream accept
@@ -176,5 +182,5 @@ export function createGitHub({ token = '', fetchImpl = globalThis.fetch, userAge
     return `${API}/repos/${repo}/tarball/${encodeURIComponent(ref)}`;
   }
 
-  return { readFile, readJson, repoInfo, latestCommit, releases, resolveReleaseAsset, download, tarballUrl, hasToken: Boolean(token) };
+  return { readFile, readJson, repoInfo, latestCommit, releases, matchingReleases, resolveReleaseAsset, download, tarballUrl, hasToken: Boolean(token) };
 }

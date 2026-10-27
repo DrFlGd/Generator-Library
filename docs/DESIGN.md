@@ -50,7 +50,9 @@ Three of the five example repos already ship an Electron or Tauri desktop wrappe
 
 ### Update model
 
-Every install records *where it came from*: release tag + asset, or branch + commit. "Check updates" asks GitHub for the newest matching release (or the branch head) and compares strings. There is no version arithmetic to get wrong, and it works for repos with no semantic versions at all. An update is just an install into the same folder.
+Every install records *where it came from*: release tag + asset, or branch + commit. "Check updates" asks GitHub for the newest matching release (or the branch head) and compares strings. There is no version arithmetic to get wrong, and it works for repos with no semantic versions at all.
+
+Each version installs into its own folder (`apps/<id>/<distKey>@<version>`). An update makes the new one launch and keeps the one it replaced, up to **Settings → Older versions to keep** (default 2; past that the oldest builds are deleted). **Versions** on a release download lists every matching release: install and launch any of them, switch back to a kept one without downloading, or delete it. A version picked this way is pinned, so update checks report what is newer without flagging it as an update. All versions of an app share one local address, so what the app saved in the browser carries across versions.
 
 ## What was learned from the example repositories
 

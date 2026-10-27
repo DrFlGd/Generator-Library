@@ -7,6 +7,7 @@ One place to browse, search, install, launch and update model generators: web ap
 - **Browse and search** every generator by name, tag, process (3D print, laser…) and how it runs.
 - **Open online**, **install an offline copy** served locally, or **install the desktop app**, from the same card.
 - **Update from GitHub**: each install remembers its release tag or commit and can be checked and updated in one click.
+- **Keep several versions**: updates keep the previous versions, and **Versions** lets you install any release and choose which one launches.
 - **Split up multi-generator apps**: a monorepo lists each generator on its own card.
 - **WebMirror built in**: generators with no downloadable build are captured for offline use with [WebMirror](https://github.com/DrFlGd/WebMirror). The library installs its own private Python and WebMirror the first time, so there is nothing to set up.
 - **Jobs panel**: every install, mirror and download shows its progress, log and any error.

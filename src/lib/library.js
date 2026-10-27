@@ -3,7 +3,8 @@
 // on every change (it is small). The install folders themselves live next to it:
 //
 //   <dataDir>/library.json
-//   <dataDir>/apps/<id>/<distKey>/...     unpacked bundles and executables
+//   <dataDir>/apps/<id>/<distKey>@<version>/...  unpacked bundles and executables,
+//                                         one folder per kept version
 //   <dataDir>/downloads/                  temporary archives
 //   <dataDir>/catalog.json                last catalog fetched from GitHub
 //   <dataDir>/runtimes/                   private runtimes such as Python (runtimes.js)
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   pythonPath: '',
   webmirrorHome: '',
   checkUpdatesOnStart: true,
+  keepVersions: 2, // older versions kept per app after an update, to switch back to
 };
 
 export function sourceKey(source) {
@@ -25,7 +27,7 @@ export function sourceKey(source) {
 }
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [] };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {} };
 }
 
 export class Library {
@@ -61,6 +63,13 @@ export class Library {
     return path.join(this.appsDir, id, distKey.replace(/[^a-z0-9_-]/gi, '_'));
   }
 
+  // Each installed version gets its own folder, so an update leaves the previous
+  // one in place to switch back to. Installs from before versions were kept live
+  // in installDir itself; their records still point there.
+  versionDir(id, distKey, version) {
+    return `${this.installDir(id, distKey)}@${String(version).replace(/[^a-z0-9._-]/gi, '_')}`;
+  }
+
   // Installed records are keyed by `${id}/${distKey}` so a generator can have both
   // an offline bundle and a Windows executable installed side by side.
   recordKey(id, distKey) {
@@ -86,7 +95,55 @@ export class Library {
 
   async removeInstalled(id, distKey) {
     delete this.state.installed[this.recordKey(id, distKey)];
+    delete this.state.kept[this.recordKey(id, distKey)];
     await this.save();
+  }
+
+  // Versions installed earlier and kept beside the one that launches, newest build first.
+  keptFor(id, distKey) {
+    return this.state.kept[this.recordKey(id, distKey)] ?? [];
+  }
+
+  // Make `record` the version that launches. The one it replaces is kept unless
+  // it is the same version; kept versions beyond `keep` are dropped. Returns the
+  // records no longer referenced, whose folders the caller deletes.
+  async activate(record, { keep = this.state.settings.keepVersions } = {}) {
+    const key = this.recordKey(record.id, record.distKey);
+    const previous = this.state.installed[key];
+    let kept = (this.state.kept[key] ?? []).filter((r) => r.version !== record.version);
+    const dropped = (this.state.kept[key] ?? []).filter((r) => r.version === record.version && r.dir !== record.dir);
+    if (previous && previous.version !== record.version) kept.push(previous);
+    else if (previous && previous.dir !== record.dir) dropped.push(previous);
+    // Past the limit the oldest builds go, so trying an old version never
+    // deletes a newer one.
+    const age = (r) => r.publishedAt || r.installedAt || '';
+    kept.sort((x, y) => (age(x) < age(y) ? 1 : age(x) > age(y) ? -1 : 0));
+    const limit = Number(keep) >= 0 ? Number(keep) : DEFAULT_SETTINGS.keepVersions;
+    dropped.push(...kept.slice(limit));
+    kept = kept.slice(0, limit);
+    this.state.installed[key] = record;
+    if (kept.length) this.state.kept[key] = kept;
+    else delete this.state.kept[key];
+    await this.save();
+    return dropped;
+  }
+
+  // Switch to a kept version without downloading anything.
+  async useKept(id, distKey, version, { pinned = true } = {}) {
+    const record = this.keptFor(id, distKey).find((r) => r.version === version);
+    if (!record) throw new Error(`Version ${version} is not kept`);
+    return this.activate({ ...record, pinned }, { keep: Infinity });
+  }
+
+  async removeKept(id, distKey, version) {
+    const key = this.recordKey(id, distKey);
+    const record = this.keptFor(id, distKey).find((r) => r.version === version);
+    if (!record) return null;
+    const rest = this.keptFor(id, distKey).filter((r) => r !== record);
+    if (rest.length) this.state.kept[key] = rest;
+    else delete this.state.kept[key];
+    await this.save();
+    return record;
   }
 
   async touchRecent(id) {

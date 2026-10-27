@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { createGitHub } from '../lib/github.js';
 import { normalizeCatalog, resolveCatalog } from '../lib/catalog.js';
 import { search, facets } from '../lib/search.js';
-import { checkForUpdate, installDistribution, uninstallDistribution } from '../lib/installer.js';
+import { checkForUpdate, installDistribution, removeVersion as removeKeptVersion, uninstallDistribution } from '../lib/installer.js';
 import { createStableServer } from '../lib/server.js';
 import { currentPlatform, distributionKey, usableDistributions } from '../lib/manifest.js';
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
@@ -132,6 +132,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       favorites: library.state.favorites,
       recent: library.state.recent,
       installed: library.state.installed,
+      kept: library.state.kept,
       running: [...servers.keys()],
       jobs: jobs.list(),
       runtimes: runtimes.status(),
@@ -148,18 +149,63 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return search(manifests, query, { platform: currentPlatform(), ...filters }, library.installedIds()).map((m) => m.id);
   }
 
-  async function install({ id, distKey }) {
+  // `tag` installs one exact release from the version list instead of the newest;
+  // that version is then pinned so update checks leave it alone.
+  async function install({ id, distKey, tag }) {
     const manifest = manifestById(id);
     const dist = distributionOf(manifest, distKey);
-    const verb = library.getInstalled(id, distKey) ? 'Updating' : 'Installing';
+    const verb = tag ? `Installing ${tag} of` : library.getInstalled(id, distKey) ? 'Updating' : 'Installing';
     return jobs.run({ title: `${verb} ${manifest.name}`, kind: 'install', target: { id, distKey } }, async (job) => {
       await runtimes.ensure(requirementsOf(manifest, dist), job);
       return installDistribution(manifest, dist, {
         library,
         github,
+        tag,
         onProgress: (p) => (p.received !== undefined ? job.progress(p) : job.log(p.message)),
       });
     });
+  }
+
+  // Every release this distribution can install, newest first, with which of
+  // them are on disk and which one launches.
+  async function versions({ id, distKey }) {
+    const manifest = manifestById(id);
+    const dist = distributionOf(manifest, distKey);
+    if (dist.from?.type !== 'release') throw new Error('Only release downloads have versions to choose from');
+    const active = library.getInstalled(id, distKey);
+    const kept = library.keptFor(id, distKey);
+    const repo = dist.from.repo || manifest.repo;
+    const found = await github.matchingReleases(repo, { tag: dist.from.tag, asset: dist.from.asset, prerelease: true });
+    const newest = found.find((m) => dist.from.prerelease || !m.release.prerelease)?.release.tag ?? found[0]?.release.tag ?? '';
+    const list = found.map(({ release, asset }) => ({
+      tag: release.tag,
+      name: release.name,
+      publishedAt: release.publishedAt,
+      prerelease: release.prerelease,
+      size: asset.size,
+      htmlUrl: release.htmlUrl,
+      newest: release.tag === newest,
+      active: active?.version === release.tag,
+      kept: kept.some((r) => r.version === release.tag),
+    }));
+    // Installed builds whose release is gone from GitHub still show, to launch or delete.
+    for (const r of [active, ...kept].filter(Boolean)) {
+      if (!list.some((v) => v.tag === r.version)) list.push({ tag: r.version, name: r.version, publishedAt: r.publishedAt ?? '', prerelease: false, size: r.sizeBytes ?? 0, htmlUrl: '', newest: false, active: r === active, kept: r !== active, gone: true });
+    }
+    return list;
+  }
+
+  // Launch a kept version from now on. A running copy is closed so the next
+  // launch opens the chosen one; it keeps the same address and saved data.
+  async function useVersion({ id, distKey, version, pin = true }) {
+    await stopServer(library.recordKey(id, distKey));
+    await library.useKept(id, distKey, version, { pinned: Boolean(pin) });
+    return state();
+  }
+
+  async function removeVersion({ id, distKey, version }) {
+    await removeKeptVersion(id, distKey, version, { library });
+    return state();
   }
 
   async function uninstall({ id, distKey }) {
@@ -282,7 +328,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
         const manifest = manifestById(record.id);
         const dist = distributionOf(manifest, record.distKey);
         const { hasUpdate, latest } = await checkForUpdate(manifest, dist, record, github);
-        results.push({ id: record.id, distKey: record.distKey, hasUpdate, latest: { version: latest.version, publishedAt: latest.publishedAt, notes: latest.notes ?? '', htmlUrl: latest.htmlUrl ?? '' } });
+        // A pinned version still reports what is newer, but is not flagged as an update.
+        results.push({ id: record.id, distKey: record.distKey, hasUpdate: hasUpdate && !record.pinned, pinned: Boolean(record.pinned), newer: hasUpdate, latest: { version: latest.version, publishedAt: latest.publishedAt, notes: latest.notes ?? '', htmlUrl: latest.htmlUrl ?? '' } });
       } catch (error) {
         results.push({ id: record.id, distKey: record.distKey, error: error.message });
       }
@@ -434,6 +481,9 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     openSnapshot,
     installRuntime,
     removeRuntime,
+    versions,
+    useVersion,
+    removeVersion,
     describeProject,
     addProject,
     removeProject,

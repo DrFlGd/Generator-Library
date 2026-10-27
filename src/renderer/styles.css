@@ -492,6 +492,64 @@ button {
   justify-content: flex-end;
 }
 
+.dist-group {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.dist-group > .dist {
+  border: 0;
+}
+
+.versions {
+  padding: 4px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.version-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.version.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.version-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.version-info .dist-meta {
+  flex-basis: 100%;
+}
+
+.version-tag {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .dist.is-unavailable {
   opacity: 0.55;
 }
@@ -833,4 +891,8 @@ button {
 
 .found.settings-form {
   padding: 12px;
+}
+
+.btn.is-on {
+  border-color: var(--accent);
 }

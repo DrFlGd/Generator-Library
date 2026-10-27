@@ -24,6 +24,7 @@ const { manifests, problems } = await resolveCatalog(catalog, { readJson: async 
 
 const mock = {
   installed: {},
+  kept: {}, // `${id}/${distKey}` -> older records
   favorites: [],
   recent: [],
   sources: [],
@@ -32,8 +33,10 @@ const mock = {
   hidden: [],
   removed: [],
   added: [], // { key, manifest }
-  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false },
+  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2 },
 };
+
+const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
 
 function all() {
   return [...manifests, ...mock.added.map((a) => a.manifest)];
@@ -49,6 +52,7 @@ function state() {
     favorites: mock.favorites,
     recent: mock.recent,
     installed: mock.installed,
+    kept: mock.kept,
     running: [],
     jobs: mock.jobs,
     hidden: mock.hidden,
@@ -78,14 +82,39 @@ const handlers = {
   getState: () => state(),
   refreshCatalog: () => state(),
   search: ({ query, filters }) => search(all().filter((m) => !mock.removed.includes(m.repo)), query, { platform: currentPlatform(), ...filters }, new Set(Object.values(mock.installed).map((r) => r.id))).map((m) => m.id),
-  install: ({ id, distKey }) => {
-    const m = manifests.find((x) => x.id === id);
-    const record = { id, name: m.name, distKey, kind: distKey.split(':')[0], version: 'mock-1.0', source: { type: 'release', tag: 'mock-1.0' }, dir: `/mock/${id}`, installedAt: new Date().toISOString(), sizeBytes: 12345678 };
-    mock.installed[`${id}/${distKey}`] = record;
+  install: ({ id, distKey, tag }) => {
+    const m = all().find((x) => x.id === id);
+    const version = tag || MOCK_RELEASES[0].tag;
+    const key = `${id}/${distKey}`;
+    const record = { id, name: m.name, distKey, kind: distKey.split(':')[0], version, pinned: Boolean(tag), source: { type: 'release', tag: version }, dir: `/mock/${id}@${version}`, installedAt: new Date().toISOString(), sizeBytes: 12345678 };
+    const previous = mock.installed[key];
+    const kept = (mock.kept[key] ?? []).filter((r) => r.version !== version);
+    if (previous && previous.version !== version) kept.unshift(previous);
+    mock.kept[key] = kept.slice(0, mock.settings.keepVersions);
+    mock.installed[key] = record;
     mockJob(`Installing ${m.name}`, { id, distKey });
     return record;
   },
-  uninstall: ({ id, distKey }) => delete mock.installed[`${id}/${distKey}`],
+  uninstall: ({ id, distKey }) => {
+    delete mock.kept[`${id}/${distKey}`];
+    return delete mock.installed[`${id}/${distKey}`];
+  },
+  versions: ({ id, distKey }) => {
+    const key = `${id}/${distKey}`;
+    return MOCK_RELEASES.map((r, i) => ({ ...r, newest: i === 0, active: mock.installed[key]?.version === r.tag, kept: (mock.kept[key] ?? []).some((k) => k.version === r.tag) }));
+  },
+  useVersion: ({ id, distKey, version, pin }) => {
+    const key = `${id}/${distKey}`;
+    const record = mock.kept[key].find((r) => r.version === version);
+    mock.kept[key] = [mock.installed[key], ...mock.kept[key].filter((r) => r !== record)];
+    mock.installed[key] = { ...record, pinned: pin };
+    return state();
+  },
+  removeVersion: ({ id, distKey, version }) => {
+    const key = `${id}/${distKey}`;
+    mock.kept[key] = (mock.kept[key] ?? []).filter((r) => r.version !== version);
+    return state();
+  },
   launch: () => ({ launched: true }),
   openWeb: ({ id }) => {
     mock.recent = [id, ...mock.recent.filter((x) => x !== id)];
@@ -94,7 +123,10 @@ const handlers = {
   // MOCK_MIRROR_FAIL=1 shows how a failed job looks on its distribution row.
   mirror: ({ id, distKey }) =>
     process.env.MOCK_MIRROR_FAIL ? mockJob(`Mirroring ${manifests.find((x) => x.id === id).name}`, { id, distKey }, { failed: 'Browser capture needs Chrome or Edge.' }) : handlers.install({ id, distKey }),
-  checkUpdates: () => Object.values(mock.installed).map((r) => ({ id: r.id, distKey: r.distKey, hasUpdate: true, latest: { version: 'mock-1.1', publishedAt: '', notes: '', htmlUrl: '' } })),
+  checkUpdates: () => Object.values(mock.installed).map((r) => {
+    const newer = r.version !== MOCK_RELEASES[0].tag;
+    return { id: r.id, distKey: r.distKey, hasUpdate: newer && !r.pinned, pinned: Boolean(r.pinned), newer, latest: { version: MOCK_RELEASES[0].tag, publishedAt: '', notes: '', htmlUrl: '' } };
+  }),
   toggleFavorite: ({ id }) => {
     mock.favorites = mock.favorites.includes(id) ? mock.favorites.filter((x) => x !== id) : [...mock.favorites, id];
     return mock.favorites.includes(id);
