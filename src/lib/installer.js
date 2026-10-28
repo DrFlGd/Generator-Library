@@ -18,7 +18,7 @@ import { distributionKey } from './manifest.js';
 import { extractTarGz, extractZip } from './archive.js';
 import { createWeb, versionFromName } from './web.js';
 
-async function dirSize(dir) {
+export async function dirSize(dir) {
   let total = 0;
   const walk = async (d) => {
     for (const entry of await fs.readdir(d, { withFileTypes: true })) {
@@ -35,7 +35,7 @@ async function dirSize(dir) {
   return total;
 }
 
-async function replaceDir(stagingDir, finalDir) {
+export async function replaceDir(stagingDir, finalDir) {
   await fs.rm(finalDir, { recursive: true, force: true });
   await fs.mkdir(path.dirname(finalDir), { recursive: true });
   await fs.rename(stagingDir, finalDir);

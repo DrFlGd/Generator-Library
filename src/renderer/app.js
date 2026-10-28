@@ -136,7 +136,8 @@ function setStatus(message, tone = '') {
 async function runSearch() {
   if (!state.data) return;
   let ids = await call('search', { query: state.query, filters: {} });
-  const installedIds = new Set(Object.values(state.data.installed).map((r) => r.id));
+  // Saved source counts as being in your library too.
+  const installedIds = new Set([...Object.values(state.data.installed).map((r) => r.id), ...Object.keys(state.data.code ?? {})]);
   if (state.show === 'installed') ids = ids.filter((id) => installedIds.has(id));
   if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id) || needsResync(id));
   if (state.show === 'favorites') ids = ids.filter((id) => state.data.favorites.includes(id));
@@ -496,6 +497,7 @@ function renderCard(g) {
         return el('span', { class: `badge badge-kind ${mark === 'works' ? 'is-works' : 'is-broken'}`, title: mark === 'works' ? 'You marked the mirror as working offline' : 'You marked the mirror as needing the internet' }, `Mirror ${mark === 'works' ? '✓' : '✗'}`);
       }),
       installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
+      state.data.code?.[g.id] ? el('span', { class: 'badge', title: "A copy of the repository's files is saved on this computer" }, 'Source saved') : null,
       update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
       needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
       g.pricing && g.pricing !== 'free' ? el('span', { class: 'badge badge-price' }, PRICING_LABELS[g.pricing]) : null,
@@ -647,6 +649,55 @@ function renderDistribution(g, d) {
   return versioned && state.versions.has(rk) ? el('div', { class: 'dist-group' }, node, renderVersions(g, key)) : node;
 }
 
+// The repository's files, saved beside the installs to work on later, whether
+// or not they run as they are. Any generator with a GitHub repository has it.
+function renderCode(g) {
+  const record = state.data.code?.[g.id] ?? null;
+  if (!g.repo && !record) return null;
+  const rk = recordKey(g.id, 'code');
+  const job = jobFor(g.id, 'code');
+  const busy = state.busy.has(rk) || job?.status === 'running';
+  const meta = [`github.com/${record?.repo ?? g.repo}`];
+  if (record) {
+    meta.push(`Saved ${new Date(record.savedAt).toLocaleDateString()}: commit ${record.sha.slice(0, 7)} on ${record.ref}${record.committedAt ? ` from ${new Date(record.committedAt).toLocaleDateString()}` : ''}`);
+    meta.push(`${record.files} files · ${(record.sizeBytes / 1048576).toFixed(1)} MB`);
+    if (g.repo && record.repo !== g.repo) meta.push(`The generator now points at ${g.repo}`);
+  } else {
+    meta.push("A copy of the repository's files (no git history) to work on later. It may not run as it is.");
+  }
+  const run = (name, { confirm = '' } = {}) => async () => {
+    if (confirm && !window.confirm(confirm)) return;
+    state.busy.add(rk);
+    renderDetail();
+    try {
+      await call(name, { id: g.id });
+      setStatus('');
+    } catch (error) {
+      setStatus(`${g.name}: ${error.message}`, 'error');
+    } finally {
+      state.busy.delete(rk);
+      await reloadState({ keepSearch: true });
+    }
+  };
+  const button = (label, onclick, primary = false) => el('button', { class: `btn btn-small ${primary ? 'btn-primary' : ''}`, type: 'button', disabled: busy, onclick }, label);
+  const actions = record
+    ? [button('Folder', run('openCode')), g.repo ? button('Get newest', run('saveCode')) : null, button('Remove', run('removeCode', { confirm: `Delete the saved source of ${g.name}?` }))].filter(Boolean)
+    : [button('Save source', run('saveCode'))];
+  return el(
+    'div',
+    { class: 'dist' },
+    el(
+      'div',
+      { class: 'dist-info' },
+      el('div', { class: 'dist-title' }, 'Source code'),
+      el('div', { class: 'dist-meta' }, meta.join(' · ')),
+      job?.status === 'running' ? el('div', { class: 'dist-job' }, el('div', { class: 'dist-meta' }, job.message || job.title), progressBar(job)) : null,
+      job?.status === 'failed' ? el('div', { class: 'dist-error' }, job.error, ' ', el('button', { class: 'link', type: 'button', onclick: () => openJobs(job.id) }, 'Show log')) : null,
+    ),
+    el('div', { class: 'dist-actions' }, actions),
+  );
+}
+
 // ─────────────────────────────── versions ────────────────────────────────
 
 async function loadVersions(g, key) {
@@ -764,7 +815,7 @@ function renderDetail() {
   renderTagEditor(g);
   renderDetailCollections(g);
   $('detail-description').textContent = g.description || g.summary || '';
-  $('detail-dists').replaceChildren(...g.distributions.map((d) => renderDistribution(g, d)));
+  $('detail-dists').replaceChildren(...[...g.distributions.map((d) => renderDistribution(g, d)), renderCode(g)].filter(Boolean));
   const source = $('detail-source');
   // replaceChildren writes a null as the text "null", so the optional parts go through el().
   source.replaceChildren(el('span', {},
