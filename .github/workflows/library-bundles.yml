@@ -61,3 +61,14 @@ jobs:
       upstream: CNCKitchen/stlTexturizer
       node: '22'
       force: ${{ inputs.force == true }}
+
+  bahtinov-mask:
+    uses: ./.github/workflows/library-bundle.yml
+    permissions:
+      contents: write
+    with:
+      id: bahtinov-mask
+      name: Bahtinov Mask Generator
+      upstream: MartynAllen/bahtinov-mask-generator
+      node: '22'
+      force: ${{ inputs.force == true }}

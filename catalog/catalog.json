@@ -10653,9 +10653,16 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://astromar.co.uk/learn/bahtinov-mask-focusing",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "release",
+                  "repo": "DrFlGd/Generator-Library",
+                  "tag": "bahtinov-mask-*",
+                  "asset": "bahtinov-mask-web-*.zip",
+                  "prerelease": true
+                },
+                "notes": "A page this library made around the repository's mask engine, rebuilt whenever the engine changes. It runs fully offline."
               }
             ],
             "repo": "MartynAllen/bahtinov-mask-generator",

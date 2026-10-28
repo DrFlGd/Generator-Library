@@ -6,6 +6,7 @@ import {
   exportsOf,
   isKnownUrl,
   isPagesSite,
+  libraryBundle,
   knownGenerators,
   manifestFor,
   mergeCatalog,
@@ -173,6 +174,14 @@ test('a static site is served from the repository even with a package.json that 
   assert.deepEqual(offlineFromRepo(facts({ staticSite: '', staticRefs: { missing: ['app.js'], hosts: [] } })), [], 'a page whose script is not committed');
   const [page] = offlineFromRepo(facts({ staticSite: '', staticRefs: { missing: [], hosts: [] }, staticPages: ['index.html', 'index_3d.html'] }), 'https://maps.example/index_3d.html?z=13');
   assert.equal(page.entry, 'index_3d.html');
+});
+
+test("a repository this library builds itself installs the library's own build", () => {
+  const listing = parseListing(page({ url: 'https://astromar.example/bahtinov' }), LISTING);
+  const manifest = manifestFor(listing, facts({ full: 'MartynAllen/bahtinov-mask-generator', staticSite: null }));
+  assert.deepEqual(manifest.distributions.map((d) => d.kind), ['web', 'bundle']);
+  assert.deepEqual(manifest.distributions[1].from, { type: 'release', repo: 'DrFlGd/Generator-Library', tag: 'bahtinov-mask-*', asset: 'bahtinov-mask-web-*.zip', prerelease: true });
+  assert.equal(libraryBundle('alice/widgets'), null);
 });
 
 test("the gh-pages branch is used only when it is the generator's own site", () => {

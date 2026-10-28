@@ -28,6 +28,20 @@ const NOT_REPO_OWNERS = new Set(['sponsors', 'features', 'orgs', 'topics', 'mark
 // Listings of generators the catalog has under another address (a MakerLab
 // page for an app the catalog lists by its repository): SkipTheCAD slug → catalog id.
 const SAME_AS = { 'makerlab-folding-box-generator': 'foldbox', 'makerlab-clicker-generator': 'clicker-generator' };
+// Repositories this library builds itself (scripts/bundles/<id>.sh, published by
+// library-bundles.yml) because their own files are not a page that runs offline.
+const LIBRARY_BUNDLES = {
+  'martynallen/bahtinov-mask-generator': {
+    id: 'bahtinov-mask',
+    notes: "A page this library made around the repository's mask engine, rebuilt whenever the engine changes. It runs fully offline.",
+  },
+};
+export function libraryBundle(repo) {
+  const known = LIBRARY_BUNDLES[repo.toLowerCase()];
+  if (!known) return null;
+  const { id, notes } = known;
+  return { kind: 'bundle', label: 'Install offline copy', from: { type: 'release', repo: 'DrFlGd/Generator-Library', tag: `${id}-*`, asset: `${id}-web-*.zip`, prerelease: true }, notes };
+}
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
 const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/, /(^|\.)alpaco\.it$/];
 
@@ -335,7 +349,10 @@ export function manifestFor(listing, facts) {
       distributions.push({ kind: 'web', url: other, label: 'Open on MakerWorld' });
     }
   }
-  if (repo) distributions.push(...offlineFromRepo(facts, listing.url));
+  if (repo) {
+    const own = libraryBundle(repo);
+    distributions.push(...(own ? [own] : offlineFromRepo(facts, listing.url)));
+  }
   const offline = distributions.some((d) => d.kind !== 'web');
   const mirrorable = /browser/.test(runsOn) && pricing === 'free' && !account && listing.category?.slug !== 'ai-3d' && !NO_MIRROR_HOSTS.some((re) => re.test(host(listing.url)));
   if (!offline && mirrorable && listing.url) distributions.push({ kind: 'mirror', url: listing.url, githubPagesFiles: /\.github\.io$/.test(host(listing.url)) });
