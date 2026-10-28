@@ -39,22 +39,11 @@
           <button class="chip" data-show="hidden">Hidden</button>
         </div>
       </section>
-      <section class="facet">
-        <h2>Availability</h2>
-        <div class="chips" id="availability-chips"></div>
-      </section>
-      <section class="facet">
-        <h2>Runs as</h2>
-        <div class="chips" id="kind-chips"></div>
-      </section>
-      <section class="facet">
-        <h2>Process</h2>
-        <div class="chips" id="process-chips"></div>
-      </section>
-      <section class="facet">
-        <h2>Tags</h2>
-        <div class="chips" id="tag-chips"></div>
-      </section>
+      <div class="filters-head">
+        <h2>Filters</h2>
+        <button id="clear-filters" class="link muted" type="button" hidden>Clear all</button>
+      </div>
+      <div id="filters" class="filters"></div>
       <section class="facet facet-footer">
         <p id="catalog-source" class="muted"></p>
         <button id="show-problems" class="link muted" hidden></button>
@@ -77,12 +66,16 @@
       <div>
         <h2 id="detail-name"></h2>
         <p id="detail-summary" class="muted"></p>
+        <p id="detail-facts" class="detail-facts"></p>
       </div>
-      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+      <div class="row row-tight">
+        <button id="detail-fav" class="btn fav-btn" type="button"></button>
+        <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+      </div>
     </form>
     <div class="detail-body">
       <div id="detail-media" class="detail-media"></div>
-      <div id="detail-tags" class="tags"></div>
+      <div id="detail-tags" class="tag-editor"></div>
       <p id="detail-description" class="detail-description"></p>
       <h3>Ways to run it</h3>
       <div id="detail-dists" class="dist-list"></div>

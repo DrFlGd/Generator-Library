@@ -19,14 +19,15 @@ import { buildProject } from '../lib/build.js';
 import { checkMove, copyLibrary, PORTABLE_FOLDER, pointerPath, writePointer } from './location.js';
 import { mergeRequires, normalizeManifest } from '../lib/manifest.js';
 import { describeProject as describeInput } from '../lib/describe.js';
-import { sourceKey } from '../lib/library.js';
+import { applyTagEdits, sourceKey } from '../lib/library.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
 
 export function createServices({ library, app, openGeneratorWindow, openExternal, shell, location = null, relaunch = () => {}, chooseFolder = async () => '' }) {
   let github = createGitHub({ token: library.state.settings.githubToken });
-  let manifests = [];
+  let manifests = []; // the catalog's generators with your own tags applied
+  let resolvedManifests = []; // as the catalog describes them
   let problems = [];
   let catalogSource = 'bundled';
   let catalogSources = []; // every source last loaded, removed ones included
@@ -118,9 +119,29 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       ? (repo, file) => github.readJson(repo, file)
       : async () => null; // offline: catalog fallbacks only
     const resolved = await resolveCatalog(catalog, { readJson });
-    manifests = resolved.manifests;
+    resolvedManifests = resolved.manifests;
+    applyUserTags();
     problems.push(...resolved.problems);
     emit('catalog:changed', { count: manifests.length });
+    return state();
+  }
+
+  // `catalogTags` stays on an edited generator so the detail view can offer to undo the edit.
+  function applyUserTags() {
+    const edits = library.state.tagEdits ?? {};
+    manifests = resolvedManifests.map((m) => (edits[m.id] ? { ...m, tags: applyTagEdits(m.tags, edits[m.id]), catalogTags: m.tags } : m));
+  }
+
+  async function setTags({ id, tags }) {
+    const original = resolvedManifests.find((m) => m.id === id);
+    if (!original) throw new Error(`Unknown generator "${id}"`);
+    await library.setTags(id, tags ?? original.tags, original.tags);
+    applyUserTags();
+    return state();
+  }
+
+  async function setFavorite({ id, favorite }) {
+    await library.setFavorite(id, Boolean(favorite));
     return state();
   }
 
@@ -514,6 +535,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     mirror,
     checkUpdates,
     toggleFavorite: ({ id }) => library.toggleFavorite(id),
+    setFavorite,
+    setTags,
     updateSettings,
     addSource,
     removeSource,

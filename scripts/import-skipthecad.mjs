@@ -24,6 +24,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const SITE = 'https://skipthecad.com/';
 const UA = 'GeneratorLibraryCatalog/1.0 (+https://github.com/DrFlGd/Generator-Library)';
 const NOT_REPO_OWNERS = new Set(['sponsors', 'features', 'orgs', 'topics', 'marketplace', 'apps', 'login', 'about', 'settings', 'site', 'simplysolid3d']);
+// Listings of generators the catalog has under another address (a MakerLab
+// page for an app the catalog lists by its repository): SkipTheCAD slug → catalog id.
+const SAME_AS = { 'makerlab-folding-box-generator': 'foldbox', 'makerlab-clicker-generator': 'clicker-generator' };
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
 const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/];
 
@@ -255,7 +258,6 @@ export function manifestFor(listing, facts) {
     f['Best for'] ? `Best for: ${f['Best for']}.` : '',
     listing.price ? `Price: ${listing.price.replace(/\.$/, '')}.` : '',
     f['Runs on'] ? `Runs on: ${f['Runs on']}.` : '',
-    `Listed on SkipTheCAD: ${listing.listing}`,
   ].filter(Boolean).join('\n');
 
   const manifest = {
@@ -489,7 +491,7 @@ async function main() {
       }
     }
     const manifest = manifestFor(listing, facts);
-    if (known.ids.has(manifest.id) || isKnownUrl(known, listing.url) || (manifest.repo && known.repos.has(manifest.repo.toLowerCase()))) {
+    if (known.ids.has(manifest.id) || known.ids.has(SAME_AS[listing.slug]) || isKnownUrl(known, listing.url) || (manifest.repo && known.repos.has(manifest.repo.toLowerCase()))) {
       console.log(`already listed: ${listing.name}`);
       continue;
     }

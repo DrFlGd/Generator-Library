@@ -6,16 +6,39 @@ const api = window.library;
 
 const KIND_LABELS = { web: 'Online', bundle: 'Offline copy', exe: 'Desktop app', mirror: 'Mirror' };
 const PLATFORM_LABELS = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+const CATEGORY_LABELS = {
+  'ai-3d': 'AI to 3D',
+  boxes: 'Boxes',
+  cad: 'CAD',
+  codes: 'QR & NFC codes',
+  'cookie-cutters': 'Cookie cutters',
+  customizers: 'Customizers',
+  gifts: 'Gifts',
+  'image-relief': 'Image to relief',
+  keychains: 'Keychains',
+  lithophanes: 'Lithophanes',
+  'maps-terrain': 'Maps & terrain',
+  mechanical: 'Mechanical parts',
+  'puzzles-games': 'Puzzles & games',
+  'signs-text': 'Signs & text',
+  storage: 'Storage',
+  'vases-lamps': 'Vases & lamps',
+};
+const PROCESS_LABELS = { '3d-print': '3D print', laser: 'Laser', cnc: 'CNC', tool: 'Tool' };
+const PRICING_LABELS = { free: 'Free', freemium: 'Free, paid extras', paid: 'Paid' };
+const SOURCE_LABELS = { 'open-source': 'Open source', makerworld: 'On MakerWorld', skipthecad: 'From SkipTheCAD', yours: 'Added by you' };
+const SIGNUP_LABELS = { 'no-account': 'No account needed', account: 'Account needed' };
 
 const state = {
   data: null, // last snapshot from main
   query: '',
   show: 'all',
-  kinds: new Set(),
-  process: '',
-  tags: new Set(),
-  availability: '', // '' | 'online' | 'offline' | 'ready'
+  filters: {}, // facet key -> Set of chosen values (FACETS below)
+  base: [], // ids matching the search and Show, before the filter panel
   results: [],
+  openFacets: null, // facet keys whose section is expanded
+  moreFacets: new Set(), // facet keys showing every value, not just the first few
+  tagQuery: '',
   found: null, // what Add project looked up, waiting to be added
   updates: new Map(), // `${id}/${distKey}` -> result
   jobs: [], // newest first, from main (jobs.js)
@@ -104,8 +127,7 @@ function setStatus(message, tone = '') {
 
 async function runSearch() {
   if (!state.data) return;
-  const filters = { kinds: [...state.kinds], process: state.process, tags: [...state.tags] };
-  let ids = await call('search', { query: state.query, filters });
+  let ids = await call('search', { query: state.query, filters: {} });
   const installedIds = new Set(Object.values(state.data.installed).map((r) => r.id));
   if (state.show === 'installed') ids = ids.filter((id) => installedIds.has(id));
   if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id) || needsResync(id));
@@ -113,8 +135,9 @@ async function runSearch() {
   if (state.show === 'recent') ids = state.data.recent.filter((id) => ids.includes(id));
   const hidden = new Set(state.data.hidden ?? []);
   ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
-  if (state.availability) ids = ids.filter((id) => matchesAvailability(generatorById(id), state.availability));
-  state.results = ids;
+  state.base = ids;
+  state.results = ids.filter((id) => matchesFilters(generatorById(id)));
+  renderFilters();
   renderGrid();
 }
 
@@ -135,53 +158,169 @@ function matchesAvailability(g, value) {
   return offline.some((d) => state.data.installed[recordKey(g.id, d.key)]);
 }
 
-function renderFacets() {
-  const { facets } = state.data;
-  const chip = (label, count, active, onclick) =>
-    el('button', { class: `chip ${active ? 'is-active' : ''}`, onclick, type: 'button' }, label, count !== undefined ? el('small', {}, count) : null);
+const titleCase = (v) => v.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
-  const kinds = $('kind-chips');
-  kinds.replaceChildren(
-    ...facets.kinds.map(({ value, count }) =>
-      chip(KIND_LABELS[value] ?? value, count, state.kinds.has(value), () => {
-        state.kinds.has(value) ? state.kinds.delete(value) : state.kinds.add(value);
-        renderFacets();
-        runSearch();
-      }),
-    ),
-  );
-  const visible = state.data.generators.filter((g) => !(state.data.hidden ?? []).includes(g.id));
-  $('availability-chips').replaceChildren(
-    ...AVAILABILITY.map(([value, label]) =>
-      chip(label, visible.filter((g) => matchesAvailability(g, value)).length, state.availability === value, () => {
-        state.availability = state.availability === value ? '' : value;
-        renderFacets();
-        runSearch();
-      }),
-    ),
-  );
-  const processes = $('process-chips');
-  processes.replaceChildren(
-    ...facets.processes.map(({ value, count }) =>
-      chip(value, count, state.process === value, () => {
-        state.process = state.process === value ? '' : value;
-        renderFacets();
-        runSearch();
-      }),
-    ),
-  );
-  const tags = $('tag-chips');
-  tags.replaceChildren(
-    ...facets.tags.slice(0, 40).map(({ value, count }) =>
-      chip(value, count, state.tags.has(value), () => {
-        state.tags.has(value) ? state.tags.delete(value) : state.tags.add(value);
-        renderFacets();
-        runSearch();
-      }),
-    ),
-  );
+// The filter panel. Within a section any ticked value matches; across sections
+// all must. `order` fixes the listing order, otherwise the most common come
+// first; `limit` values show before "Show more".
+const FACETS = [
+  { key: 'category', title: 'Category', values: (g) => (g.category ? [g.category] : []), label: (v) => CATEGORY_LABELS[v] ?? titleCase(v), alpha: true },
+  { key: 'availability', title: 'Availability', values: (g) => AVAILABILITY.filter(([v]) => matchesAvailability(g, v)).map(([v]) => v), label: (v) => Object.fromEntries(AVAILABILITY)[v], order: AVAILABILITY.map(([v]) => v) },
+  { key: 'kind', title: 'Runs as', values: (g) => [...new Set(g.distributions.map((d) => d.kind))], label: (v) => KIND_LABELS[v] ?? v, order: Object.keys(KIND_LABELS) },
+  { key: 'pricing', title: 'Price', values: (g) => (g.pricing ? [g.pricing] : []), label: (v) => PRICING_LABELS[v] ?? v, order: Object.keys(PRICING_LABELS) },
+  { key: 'signup', title: 'Sign-up', values: (g) => [g.account ? 'account' : 'no-account'], label: (v) => SIGNUP_LABELS[v], order: Object.keys(SIGNUP_LABELS) },
+  { key: 'process', title: 'Process', values: (g) => (g.process ? [g.process] : []), label: (v) => PROCESS_LABELS[v] ?? v },
+  { key: 'source', title: 'Source', values: (g) => [g.openSource && 'open-source', (g.tags.includes('makerworld') || g.distributions.some((d) => /makerworld\.com/.test(d.url ?? ''))) && 'makerworld', /skipthecad\.com/.test(g.listing ?? '') && 'skipthecad', g.origin === 'yours' && 'yours'].filter(Boolean), label: (v) => SOURCE_LABELS[v], order: Object.keys(SOURCE_LABELS) },
+  { key: 'exports', title: 'Exports', values: (g) => g.exports ?? [], label: (v) => v.toUpperCase(), limit: 8 },
+  { key: 'tags', title: 'Tags', values: (g) => g.tags, label: (v) => v, limit: 14, searchable: true },
+];
+const DEFAULT_OPEN = ['category', 'availability', 'kind', 'pricing', 'tags'];
+
+for (const f of FACETS) state.filters[f.key] = new Set();
+
+function matchesFilters(g, skip = '') {
+  if (!g) return false;
+  for (const f of FACETS) {
+    const chosen = state.filters[f.key];
+    if (f.key === skip || !chosen.size) continue;
+    if (!f.values(g).some((v) => chosen.has(v))) return false;
+  }
+  return true;
+}
+
+function activeFilterCount() {
+  return FACETS.reduce((n, f) => n + state.filters[f.key].size, 0);
+}
+
+function loadOpenFacets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('openFacets') ?? 'null');
+    if (Array.isArray(saved)) return new Set(saved);
+  } catch {
+    /* storage unavailable */
+  }
+  return new Set(DEFAULT_OPEN);
+}
+
+function saveOpenFacets() {
+  try {
+    localStorage.setItem('openFacets', JSON.stringify([...state.openFacets]));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function setFilter(key, value, on) {
+  if (on) state.filters[key].add(value);
+  else state.filters[key].delete(value);
+  runSearch();
+}
+
+function clearFilters() {
+  for (const f of FACETS) state.filters[f.key].clear();
+  state.tagQuery = '';
+  runSearch();
+}
+
+// Counts are for what the search and the other sections leave, so each number
+// is how many results ticking that value would give.
+function renderFilters() {
+  state.openFacets ??= loadOpenFacets();
+  const base = state.base.map(generatorById).filter(Boolean);
+  const box = $('filters');
+  const focused = document.activeElement?.dataset?.facetSearch;
+  const sections = FACETS.map((f) => {
+    const counts = new Map();
+    for (const g of base) if (matchesFilters(g, f.key)) for (const v of new Set(f.values(g))) counts.set(v, (counts.get(v) ?? 0) + 1);
+    const chosen = state.filters[f.key];
+    for (const v of chosen) if (!counts.has(v)) counts.set(v, 0);
+    let values = [...counts.keys()];
+    if (f.order) values.sort((a, b) => (f.order.indexOf(a) + 1 || 99) - (f.order.indexOf(b) + 1 || 99));
+    else if (f.alpha) values.sort((a, b) => f.label(a).localeCompare(f.label(b)));
+    else values.sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b));
+    if (!values.length) return null;
+    const query = f.searchable ? state.tagQuery.trim().toLowerCase() : '';
+    if (query) values = values.filter((v) => v.includes(query));
+    const all = state.moreFacets.has(f.key) || query;
+    const shown = all || !f.limit ? values : [...values.filter((v) => chosen.has(v)), ...values.filter((v) => !chosen.has(v))].slice(0, Math.max(f.limit, chosen.size));
+    const open = state.openFacets.has(f.key);
+    return el(
+      'details',
+      {
+        class: 'filter',
+        open,
+        ontoggle: (e) => {
+          if (e.target.open) state.openFacets.add(f.key);
+          else state.openFacets.delete(f.key);
+          saveOpenFacets();
+        },
+      },
+      el('summary', {}, el('span', {}, f.title), chosen.size ? el('span', { class: 'filter-count' }, chosen.size) : null),
+      f.searchable
+        ? el('input', {
+            class: 'filter-search',
+            type: 'search',
+            placeholder: 'Find a tag…',
+            value: state.tagQuery,
+            dataset: { facetSearch: f.key },
+            oninput: (e) => {
+              state.tagQuery = e.target.value;
+              renderFilters();
+            },
+          })
+        : null,
+      el(
+        'ul',
+        { class: 'filter-list' },
+        shown.map((v) =>
+          el(
+            'li',
+            {},
+            el(
+              'label',
+              { class: `filter-option ${counts.get(v) ? '' : 'is-empty'}` },
+              el('input', { type: 'checkbox', checked: chosen.has(v), onchange: (e) => setFilter(f.key, v, e.target.checked) }),
+              el('span', { class: 'filter-label' }, f.label(v)),
+              el('small', {}, counts.get(v)),
+            ),
+          ),
+        ),
+      ),
+      f.limit && !query && values.length > f.limit
+        ? el(
+            'button',
+            {
+              class: 'link muted filter-more',
+              type: 'button',
+              onclick: () => {
+                if (state.moreFacets.has(f.key)) state.moreFacets.delete(f.key);
+                else state.moreFacets.add(f.key);
+                renderFilters();
+              },
+            },
+            state.moreFacets.has(f.key) ? 'Show fewer' : `Show all ${values.length}`,
+          )
+        : null,
+    );
+  });
+  box.replaceChildren(...sections.filter(Boolean));
+  if (focused) {
+    const input = box.querySelector(`[data-facet-search="${focused}"]`);
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  }
+  const active = activeFilterCount();
+  $('clear-filters').hidden = active === 0;
+  $('clear-filters').textContent = `Clear ${active} filter${active === 1 ? '' : 's'}`;
+}
+
+function renderFacets() {
   for (const button of $('show-chips').querySelectorAll('.chip')) {
     button.classList.toggle('is-active', button.dataset.show === state.show);
+    if (button.dataset.show === 'favorites') {
+      const n = state.data.favorites.filter((id) => generatorById(id)).length;
+      button.replaceChildren('Favorites', n ? el('small', {}, n) : '');
+    }
   }
   $('catalog-source').textContent = `${state.data.generators.length} generators · catalog from ${state.data.catalogSource}`;
   const problems = $('show-problems');
@@ -194,7 +333,7 @@ function renderFacets() {
 function iconFor(g) {
   if (g.icon && /^https?:\/\//.test(g.icon)) return el('img', { src: g.icon, alt: '' });
   if (g.icon && g.repo) return el('img', { src: `https://raw.githubusercontent.com/${g.repo}/HEAD/${g.icon.replace(/^\/+/, '')}`, alt: '' });
-  return g.name.trim().slice(0, 1).toUpperCase();
+  return (g.name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
 }
 
 function renderCard(g) {
@@ -209,7 +348,7 @@ function renderCard(g) {
       'div',
       { class: 'card-head' },
       el('div', { class: 'card-icon' }, iconFor(g)),
-      el('div', {}, el('div', { class: 'card-title' }, g.name), el('div', { class: 'card-sub' }, g.collection ? `${g.collection.name} · ${g.repo}` : g.repo)),
+      el('div', {}, el('div', { class: 'card-title' }, g.name), el('div', { class: 'card-sub' }, [g.collection?.name, g.repo].filter(Boolean).join(' · '))),
     ),
     el('p', { class: 'card-summary' }, g.summary || g.description || ''),
     el('div', { class: 'tags' }, g.tags.slice(0, 5).map((t) => el('span', { class: 'tag' }, t))),
@@ -220,23 +359,38 @@ function renderCard(g) {
       installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
       update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
       needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
-      el(
-        'button',
-        {
-          class: `fav ${fav ? 'is-on' : ''}`,
-          type: 'button',
-          'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
-          onclick: async (e) => {
-            e.stopPropagation();
-            await call('toggleFavorite', { id: g.id });
-            await reloadState({ keepSearch: true });
-          },
+      g.pricing && g.pricing !== 'free' ? el('span', { class: 'badge badge-price' }, PRICING_LABELS[g.pricing]) : null,
+      g.account ? el('span', { class: 'badge badge-kind', title: 'Downloading needs an account on the site' }, 'Sign-up') : null,
+    ),
+    el(
+      'button',
+      {
+        class: `fav ${fav ? 'is-on' : ''}`,
+        type: 'button',
+        title: fav ? 'Remove from favorites' : 'Add to favorites',
+        'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
+        'aria-pressed': String(fav),
+        onclick: (e) => {
+          e.stopPropagation();
+          setFavorite(g.id, !fav);
         },
-        fav ? '★' : '☆',
-      ),
+      },
+      fav ? '★' : '☆',
     ),
   );
   return card;
+}
+
+async function setFavorite(id, favorite) {
+  try {
+    state.data = await call('setFavorite', { id, favorite });
+  } catch (error) {
+    setStatus(error.message, 'error');
+    return;
+  }
+  renderFacets();
+  await runSearch();
+  if ($('detail').open) renderDetail();
 }
 
 function renderGrid() {
@@ -429,7 +583,24 @@ function renderDetail() {
   const media = $('detail-media');
   media.replaceChildren(...g.screenshots.slice(0, 6).map((src) => el('img', { src: /^https?:/.test(src) ? src : `https://raw.githubusercontent.com/${g.repo}/HEAD/${src.replace(/^\/+/, '')}`, alt: '', loading: 'lazy' })));
   media.hidden = g.screenshots.length === 0;
-  $('detail-tags').replaceChildren(...g.tags.map((t) => el('span', { class: 'tag' }, t)), ...(g.process ? [el('span', { class: 'tag' }, g.process)] : []));
+  const fav = state.data.favorites.includes(g.id);
+  const favButton = $('detail-fav');
+  favButton.classList.toggle('is-on', fav);
+  favButton.setAttribute('aria-pressed', String(fav));
+  favButton.textContent = fav ? '★ Favorite' : '☆ Add to favorites';
+  favButton.onclick = () => setFavorite(g.id, !fav);
+  $('detail-facts').replaceChildren(
+    ...[
+      g.category ? CATEGORY_LABELS[g.category] ?? titleCase(g.category) : '',
+      g.process ? PROCESS_LABELS[g.process] ?? g.process : '',
+      g.pricing ? PRICING_LABELS[g.pricing] : '',
+      g.pricing || g.listing ? (g.account ? 'Account needed to download' : 'No account needed') : '',
+      g.exports?.length ? `Exports ${g.exports.map((e) => e.toUpperCase()).join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .map((text) => el('span', {}, text)),
+  );
+  renderTagEditor(g);
   $('detail-description').textContent = g.description || g.summary || '';
   $('detail-dists').replaceChildren(...g.distributions.map((d) => renderDistribution(g, d)));
   const source = $('detail-source');
@@ -440,7 +611,8 @@ function renderDetail() {
       : el('span', {}, g.homepage || g.source || ''),
     g.upstream ? el('span', {}, ' · fork of ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.upstream}` }) }, g.upstream)) : null,
     g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
-    g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : el('span', { class: 'muted' }, g.repo ? ' · described by the catalog (no generator.json in the repo yet)' : ' · added by link'),
+    g.listing ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.listing }) }, /skipthecad\.com/.test(g.listing) ? 'SkipTheCAD listing' : 'listing')) : null,
+    g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : g.listing ? null : el('span', { class: 'muted' }, g.repo ? ' · described by the catalog (no generator.json in the repo yet)' : ' · added by link'),
   ));
   const hidden = (state.data.hidden ?? []).includes(g.id);
   $('detail-hide').textContent = hidden ? 'Show in library' : 'Hide from library';
@@ -450,6 +622,58 @@ function renderDetail() {
     await runSearch();
     renderDetail();
   };
+}
+
+// Tags in the detail view: × removes one, the box adds one (Enter or comma),
+// and "Undo my changes" goes back to the catalog's tags. Main keeps the edits.
+async function saveTags(g, tags) {
+  try {
+    state.data = await call('setTags', { id: g.id, tags });
+  } catch (error) {
+    setStatus(error.message, 'error');
+    return;
+  }
+  renderFacets();
+  await runSearch();
+  renderDetail();
+  $('detail').querySelector('.tag-input')?.focus();
+}
+
+function renderTagEditor(g) {
+  const allTags = [...new Set(state.data.generators.flatMap((x) => x.tags))].sort();
+  const mine = new Set(g.catalogTags ? g.tags.filter((t) => !g.catalogTags.includes(t)) : []);
+  const add = (input) => {
+    const typed = input.value.split(',').map((t) => t.trim()).filter(Boolean);
+    if (!typed.length) return;
+    input.value = '';
+    saveTags(g, [...g.tags, ...typed]);
+  };
+  $('detail-tags').replaceChildren(
+    ...g.tags.map((t) =>
+      el(
+        'span',
+        { class: `tag tag-edit ${mine.has(t) ? 'is-mine' : ''}`, title: mine.has(t) ? 'Your tag' : 'From the catalog' },
+        t,
+        el('button', { type: 'button', class: 'tag-remove', 'aria-label': `Remove tag ${t}`, onclick: () => saveTags(g, g.tags.filter((x) => x !== t)) }, '×'),
+      ),
+    ),
+    el('input', {
+      class: 'tag-input',
+      type: 'text',
+      list: 'tag-suggestions',
+      placeholder: g.tags.length ? 'Add a tag' : 'Add a tag, e.g. gridfinity',
+      'aria-label': 'Add a tag',
+      onkeydown: (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          add(e.target);
+        }
+      },
+      onchange: (e) => add(e.target),
+    }),
+    el('datalist', { id: 'tag-suggestions' }, allTags.filter((t) => !g.tags.includes(t)).map((t) => el('option', { value: t }))),
+    g.catalogTags ? el('button', { class: 'link muted', type: 'button', onclick: () => saveTags(g, null) }, 'Undo my tag changes') : null,
+  );
 }
 
 // ──────────────────────────────── settings ────────────────────────────────
@@ -842,6 +1066,7 @@ $('open-settings').addEventListener('click', () => {
   renderSettings();
   $('settings').showModal();
 });
+$('clear-filters').addEventListener('click', clearFilters);
 $('show-problems').addEventListener('click', () => {
   $('problems-list').replaceChildren(
     ...state.data.problems.map((p) => el('li', {}, el('code', {}, p.repo, p.path ? `/${p.path}` : ''), ' — ', p.error)),

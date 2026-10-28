@@ -106,7 +106,8 @@ test('a free browser tool without a repository gets a mirror', () => {
   assert.equal(manifest.pricing, 'free');
   assert.equal(manifest.category, 'storage');
   assert.deepEqual(manifest.exports, ['stl', '3mf']);
-  assert.match(manifest.description, /Listed on SkipTheCAD: https:\/\/skipthecad\.com\/generators\/widget-maker\//);
+  assert.match(manifest.description, /^Makes: Widgets; Brackets\.\nPrice: Free, no account\.\nRuns on: Browser\.$/);
+  assert.equal(manifest.listing, LISTING);
 });
 
 test('paid, sign-up and AI tools are not mirrored', () => {
