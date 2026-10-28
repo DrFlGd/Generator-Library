@@ -99,7 +99,7 @@ export function editCollections(collections, op, now = Date.now()) {
 }
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [] };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {} };
 }
 
 export class Library {
@@ -256,6 +256,16 @@ export class Library {
     else delete this.state.tagEdits[id];
     await this.save();
     return applyTagEdits(catalogTags, this.state.tagEdits[id]);
+  }
+
+  // Whether a generator's mirror turned out to work without the internet:
+  // 'works', 'broken', or '' to clear. Many sites still need their server.
+  async setOfflineMark(id, mark) {
+    if (!['works', 'broken', ''].includes(mark)) throw new Error(`Unknown offline mark "${mark}"`);
+    if (mark) this.state.offlineMarks[id] = mark;
+    else delete this.state.offlineMarks[id];
+    await this.save();
+    return mark;
   }
 
   async editCollection(op) {

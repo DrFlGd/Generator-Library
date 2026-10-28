@@ -53,3 +53,13 @@ test('editCollections creates, fills, renames and deletes your collections', asy
   assert.throws(() => editCollections(list, { type: 'create', name: ' ' }), /name/);
   assert.throws(() => editCollections(list, { type: 'set', collection: 'gone', id: 'a', member: true }), /no longer exists/);
 });
+
+test('setOfflineMark records whether a mirror works offline', async () => {
+  const library = new Library(await fs.mkdtemp(path.join(os.tmpdir(), 'genlib-')));
+  await library.load();
+  await library.setOfflineMark('site', 'broken');
+  assert.deepEqual(library.state.offlineMarks, { site: 'broken' });
+  await library.setOfflineMark('site', '');
+  assert.deepEqual(library.state.offlineMarks, {});
+  await assert.rejects(library.setOfflineMark('site', 'maybe'), /Unknown offline mark/);
+});
