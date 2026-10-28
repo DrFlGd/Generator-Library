@@ -19,7 +19,7 @@
     </label>
     <div class="topbar-actions">
       <button id="refresh" class="btn" title="Re-read the catalog from GitHub">Refresh</button>
-      <button id="check-updates" class="btn" title="Compare installed generators with GitHub">Check updates</button>
+      <button id="check-updates" class="btn" title="Check installed generators for updates and update many at once">Updates</button>
       <button id="open-jobs" class="btn btn-jobs" title="Installs, mirrors and downloads">Jobs <span id="jobs-count" class="jobs-count" hidden></span></button>
       <button id="open-manage" class="btn" title="Add, hide or remove projects">Manage</button>
       <button id="open-settings" class="btn btn-quiet" aria-label="Settings">Settings</button>
@@ -168,6 +168,30 @@
     <div id="manage-message" class="status" hidden></div>
     <div id="found" class="found settings-form" hidden></div>
     <div id="projects"></div>
+  </dialog>
+
+  <dialog id="updates" class="dialog updates">
+    <form method="dialog" class="dialog-head">
+      <div>
+        <h2>Updates</h2>
+        <p id="updates-summary" class="muted"></p>
+      </div>
+      <div class="row row-tight">
+        <button id="updates-check" class="btn btn-small" type="button">Check again</button>
+        <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+      </div>
+    </form>
+    <div class="updates-body">
+      <div id="updates-scopes" class="chips"></div>
+      <ul id="updates-list" class="updates-list"></ul>
+      <div class="updates-foot">
+        <span id="updates-progress" class="muted"></span>
+        <div class="row row-tight">
+          <button id="updates-stop" class="btn btn-small" type="button" hidden>Stop after this one</button>
+          <button id="updates-run" class="btn btn-primary" type="button"></button>
+        </div>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="jobs" class="dialog">
