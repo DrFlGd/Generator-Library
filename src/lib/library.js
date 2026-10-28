@@ -65,8 +65,41 @@ export function applyTagEdits(tags, edits) {
   return [...kept, ...(edits.added ?? []).filter((t) => !have.has(t))];
 }
 
+// Your own collections: named lists of generator ids, in the order you made
+// them. One function serves every change so the app and its browser mock agree.
+//   { type: 'create', name, ids? } | { type: 'rename', collection, name }
+//   { type: 'delete', collection } | { type: 'set', collection, id, member }
+export function editCollections(collections, op, now = Date.now()) {
+  const list = Array.isArray(collections) ? collections.map((c) => ({ ...c, ids: [...c.ids] })) : [];
+  const name = String(op.name ?? '').trim().slice(0, 60);
+  const find = () => {
+    const found = list.find((c) => c.id === op.collection);
+    if (!found) throw new Error('That collection no longer exists');
+    return found;
+  };
+  if (op.type === 'create') {
+    if (!name) throw new Error('Give the collection a name');
+    let id = `c${now.toString(36)}`;
+    while (list.some((c) => c.id === id)) id += 'x';
+    list.push({ id, name, ids: [...new Set(op.ids ?? [])] });
+  } else if (op.type === 'rename') {
+    if (!name) throw new Error('Give the collection a name');
+    find().name = name;
+  } else if (op.type === 'delete') {
+    find();
+    return list.filter((c) => c.id !== op.collection);
+  } else if (op.type === 'set') {
+    const c = find();
+    c.ids = c.ids.filter((x) => x !== op.id);
+    if (op.member) c.ids.push(op.id);
+  } else {
+    throw new Error(`Unknown collection change "${op.type}"`);
+  }
+  return list;
+}
+
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [] };
 }
 
 export class Library {
@@ -223,6 +256,12 @@ export class Library {
     else delete this.state.tagEdits[id];
     await this.save();
     return applyTagEdits(catalogTags, this.state.tagEdits[id]);
+  }
+
+  async editCollection(op) {
+    this.state.collections = editCollections(this.state.collections, op);
+    await this.save();
+    return this.state.collections;
   }
 
   async updateSettings(patch) {

@@ -39,6 +39,13 @@
           <button class="chip" data-show="hidden">Hidden</button>
         </div>
       </section>
+      <section class="facet">
+        <div class="filters-head">
+          <h2>Collections</h2>
+          <button id="new-collection" class="link muted" type="button">+ New</button>
+        </div>
+        <ul id="collections" class="collections"></ul>
+      </section>
       <div class="filters-head">
         <h2>Filters</h2>
         <button id="clear-filters" class="link muted" type="button" hidden>Clear all</button>
@@ -76,6 +83,7 @@
     <div class="detail-body">
       <div id="detail-media" class="detail-media"></div>
       <div id="detail-tags" class="tag-editor"></div>
+      <div id="detail-collections" class="detail-collections"></div>
       <p id="detail-description" class="detail-description"></p>
       <h3>Ways to run it</h3>
       <div id="detail-dists" class="dist-list"></div>

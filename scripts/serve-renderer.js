@@ -13,7 +13,7 @@ import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';
 import { facets, search } from '../src/lib/search.js';
 import { currentPlatform, distributionKey, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
 import { mimeFor } from '../src/lib/server.js';
-import { applyTagEdits, normalizeTags } from '../src/lib/library.js';
+import { applyTagEdits, editCollections, normalizeTags } from '../src/lib/library.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rendererDir = path.join(root, 'src', 'renderer');
@@ -28,6 +28,7 @@ const mock = {
   kept: {}, // `${id}/${distKey}` -> older records
   favorites: [],
   tagEdits: {},
+  collections: [],
   recent: [],
   sources: [],
   jobs: [],
@@ -59,6 +60,7 @@ function state() {
     hasToken: false,
     sources: mock.sources,
     favorites: mock.favorites,
+    collections: mock.collections,
     recent: mock.recent,
     installed: mock.installed,
     kept: mock.kept,
@@ -143,6 +145,10 @@ const handlers = {
   },
   setFavorite: ({ id, favorite }) => {
     mock.favorites = favorite ? [...mock.favorites.filter((x) => x !== id), id] : mock.favorites.filter((x) => x !== id);
+    return state();
+  },
+  editCollection: (op) => {
+    mock.collections = editCollections(mock.collections, op);
     return state();
   },
   setTags: ({ id, tags }) => {

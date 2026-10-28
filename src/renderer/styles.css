@@ -1119,3 +1119,100 @@ button {
 .btn.is-on {
   border-color: var(--accent);
 }
+
+/* ─── collections ─── */
+
+.collections {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.collection {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.collection:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.collection.is-active {
+  background: var(--accent);
+  color: #06131c;
+}
+
+.collection-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collection-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-name small {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.collection-action {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 13px;
+  opacity: 0;
+}
+
+.collection:hover .collection-action,
+.collection-action:focus-visible {
+  opacity: 0.7;
+}
+
+.collection-action:hover {
+  opacity: 1;
+}
+
+.collection-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.detail-collections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.detail-collections .collection-input {
+  width: 180px;
+}
+
+.hint {
+  font-size: 12px;
+}
