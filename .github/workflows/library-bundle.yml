@@ -81,6 +81,17 @@ jobs:
           OUT: ${{ github.workspace }}/site
         run: bash "$GITHUB_WORKSPACE/library/scripts/bundles/${{ inputs.id }}.sh"
 
+      # An app can ship a browser check, scripts/bundles/<id>.check.cjs, that
+      # must pass before its build is published.
+      - name: Check
+        if: steps.pick.outputs.skip != 'true' && hashFiles(format('library/scripts/bundles/{0}.check.cjs', inputs.id)) != ''
+        env:
+          SITE: ${{ github.workspace }}/site
+        run: |
+          npm install --prefix "$RUNNER_TEMP/check" --no-audit --no-fund --loglevel=error playwright@1.48.2
+          "$RUNNER_TEMP/check/node_modules/.bin/playwright" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/check/node_modules" node "library/scripts/bundles/${{ inputs.id }}.check.cjs"
+
       - name: Zip
         if: steps.pick.outputs.skip != 'true'
         run: |

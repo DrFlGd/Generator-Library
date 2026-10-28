@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GenerateSTL</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>GenerateSTL</h1>
+    <p>Gears, screws, bearings, boxes, grilles and pegboards as printable STL files. Everything is made on this computer; nothing is sent anywhere.</p>
+  </header>
+  <main>
+    <form id="form" autocomplete="off">
+      <div class="field part">
+        <label for="part">Part</label>
+        <select id="part"></select>
+      </div>
+      <div id="basic" class="fields"></div>
+      <details id="more">
+        <summary>Advanced</summary>
+        <div id="advanced" class="fields"></div>
+      </details>
+      <button type="button" id="reset" class="link">Reset this part to defaults</button>
+    </form>
+    <section class="preview" aria-label="Preview">
+      <div id="view"><canvas id="canvas" aria-label="3D preview of the part"></canvas></div>
+      <p id="status" class="status" role="status">Starting the generator. The first start takes a few seconds.</p>
+      <p id="problem" class="problem" hidden></p>
+      <dl id="stats"></dl>
+      <button type="button" id="download" disabled>Download</button>
+    </section>
+  </main>
+  <footer>
+    Geometry engine by Fabian (nicremo), MIT licence (LICENSE-engine.txt), from
+    <a href="https://github.com/nicremo/generatestl">github.com/nicremo/generatestl</a>.
+    It runs here with <a href="https://pyodide.org">Pyodide</a> (MPL-2.0) and pydantic (MIT); the preview uses three.js (MIT).
+    The original site, with guides for each part, is <a href="https://www.generatestl.com/">generatestl.com</a>.
+  </footer>
+</body>
+</html>
