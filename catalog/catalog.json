@@ -1014,6 +1014,45 @@
       }
     },
     {
+      "repo": "kennetek/gridfinity-rebuilt-openscad",
+      "fallback": {
+        "id": "gridfinity-rebuilt",
+        "name": "Gridfinity Rebuilt",
+        "summary": "Parametric Gridfinity bins, baseplates, lite bins and spiral-vase bins from the OpenSCAD library that gridfinity.perplexinglabs.com is built on, generated on your computer.",
+        "description": "Each generator opens in OpenSCAD Playground with its settings in the Customizer panel: set the grid size, height, dividers, scoops, label tabs and magnet or screw holes, then render and export an STL.",
+        "tags": [
+          "gridfinity",
+          "bins",
+          "baseplates",
+          "openscad",
+          "customizer"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://github.com/kennetek/gridfinity-rebuilt-openscad",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://gridfinity.perplexinglabs.com/",
+            "label": "Open online (Perplexing Labs)"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "release",
+              "repo": "DrFlGd/Generator-Library",
+              "tag": "gridfinity-rebuilt-*",
+              "asset": "gridfinity-rebuilt-web-*.zip",
+              "prerelease": true
+            },
+            "entry": "gridfinity.html",
+            "notes": "Built from the repository every day by this library's own workflow: the library's generators in OpenSCAD Playground's WebAssembly OpenSCAD, so models render fully offline. Each build is rendered in a browser before it is published."
+          }
+        ]
+      }
+    },
+    {
       "repo": "jscad/OpenJSCAD.org",
       "fallback": {
         "id": "jscad",

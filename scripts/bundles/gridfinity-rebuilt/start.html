@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridfinity Rebuilt</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f5f2; --card: #fff; --text: #1d1d1b; --muted: #66645e; --line: #dedbd3; --accent: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --card: #22211f; --text: #ecebe7; --muted: #a3a09a; --line: #383632; --accent: #fb923c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  p { margin: 0 0 24px; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  button { width: 100%; height: 100%; text-align: left; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+  button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+  button strong { display: block; margin-bottom: 4px; }
+  button span { color: var(--muted); font-size: 0.9rem; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gridfinity Rebuilt</h1>
+  <p>Pick a generator. It opens with its settings in the Customizer panel; change them, then render and export an STL. Everything runs on this computer.</p>
+  <ul>
+    <li><button data-file="gridfinity-rebuilt-bins.scad"><strong>Bins</strong><span>Bins of any size, with dividers, scoops, label tabs and magnet or screw holes.</span></button></li>
+    <li><button data-file="gridfinity-rebuilt-baseplate.scad"><strong>Baseplates</strong><span>Grids to hold bins, with optional magnets, screws and weight pockets.</span></button></li>
+    <li><button data-file="gridfinity-rebuilt-lite.scad"><strong>Lite bins</strong><span>Thin-walled bins that print faster and use less filament.</span></button></li>
+    <li><button data-file="gridfinity-spiral-vase.scad"><strong>Spiral vase bins</strong><span>Bins and bases made to print in vase mode.</span></button></li>
+  </ul>
+  <footer>
+    Models from <a href="https://github.com/kennetek/gridfinity-rebuilt-openscad">gridfinity-rebuilt-openscad</a>
+    (<a href="gridfinity-rebuilt-LICENSE.txt">MIT licence</a>), run in
+    <a href="https://github.com/openscad/openscad-playground">OpenSCAD Playground</a>.
+  </footer>
+</main>
+<script>
+  // OpenSCAD Playground reads its starting state from the address fragment, as
+  // gzipped, base64 JSON. The file is fetched from beside this page.
+  async function open(file) {
+    const path = '/' + file;
+    const state = {
+      params: {
+        activePath: path,
+        sources: [{ path, url: new URL(file, location.href).href }],
+        features: [],
+        exportFormat2D: 'svg',
+        exportFormat3D: 'stl',
+      },
+      view: { layout: { mode: 'multi', editor: false, viewer: true, customizer: true }, color: '#f9d72c' },
+    };
+    const zipped = new Blob([JSON.stringify(state)]).stream().pipeThrough(new CompressionStream('gzip'));
+    const bytes = new Uint8Array(await new Response(zipped).arrayBuffer());
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    location.href = 'index.html#' + btoa(binary);
+  }
+  for (const button of document.querySelectorAll('button[data-file]')) {
+    button.addEventListener('click', () => open(button.dataset.file));
+  }
+</script>
+</body>
+</html>

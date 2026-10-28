@@ -40,6 +40,17 @@ jobs:
       node: '22'
       force: ${{ inputs.force == true }}
 
+  gridfinity-rebuilt:
+    uses: ./.github/workflows/library-bundle.yml
+    permissions:
+      contents: write
+    with:
+      id: gridfinity-rebuilt
+      name: Gridfinity Rebuilt
+      upstream: kennetek/gridfinity-rebuilt-openscad
+      node: '22'
+      force: ${{ inputs.force == true }}
+
   vostok-labs-original:
     uses: ./.github/workflows/library-bundle.yml
     permissions:
