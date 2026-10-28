@@ -1168,6 +1168,31 @@
           }
         ]
       }
+    },
+    {
+      "url": "https://mesh2solid.thavision.com/",
+      "fallback": {
+        "id": "mesh2solid",
+        "name": "Mesh2Solid",
+        "summary": "Turn an STL, 3MF or OBJ mesh into a STEP file with real planes, cylinders, holes and threads you can edit in CAD.",
+        "description": "Mesh2Solid finds the planes, cylinders, cones, tori, spheres and threads in a triangle mesh and rebuilds them as true CAD faces, so the STEP it exports can be edited in Fusion 360, SolidWorks or FreeCAD. It runs in the browser and files stay on your computer. Free for private, non-commercial use; commercial use and the editing tools need a Pro licence. Its licence does not allow copying the program, so it is listed online only.",
+        "tags": [
+          "stl",
+          "step",
+          "cad",
+          "mesh",
+          "convert"
+        ],
+        "process": "tool",
+        "homepage": "https://mesh2solid.thavision.com/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://mesh2solid.thavision.com/",
+            "label": "Open online"
+          }
+        ]
+      }
     }
   ]
 }
