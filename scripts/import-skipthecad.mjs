@@ -35,6 +35,10 @@ const LIBRARY_BUNDLES = {
     id: 'bahtinov-mask',
     notes: "A page this library made around the repository's mask engine, rebuilt whenever the engine changes. It runs fully offline.",
   },
+  'nicremo/generatestl': {
+    id: 'generatestl',
+    notes: "A page this library made around the repository's engine, which generatestl.com runs on its server. Here it runs inside the page, rebuilt whenever the engine changes, so every part works offline.",
+  },
 };
 export function libraryBundle(repo) {
   const known = LIBRARY_BUNDLES[repo.toLowerCase()];
@@ -43,7 +47,7 @@ export function libraryBundle(repo) {
   return { kind: 'bundle', label: 'Install offline copy', from: { type: 'release', repo: 'DrFlGd/Generator-Library', tag: `${id}-*`, asset: `${id}-web-*.zip`, prerelease: true }, notes };
 }
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
-const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/, /(^|\.)alpaco\.it$/];
+const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/, /(^|\.)alpaco\.it$/, /(^|\.)generatestl\.com$/];
 
 // ───────────────────────────── parsing a listing ─────────────────────────────
 

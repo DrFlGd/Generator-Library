@@ -11732,9 +11732,16 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://www.generatestl.com/gear-generator/",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "release",
+                  "repo": "DrFlGd/Generator-Library",
+                  "tag": "generatestl-*",
+                  "asset": "generatestl-web-*.zip",
+                  "prerelease": true
+                },
+                "notes": "A page this library made around the repository's engine, which generatestl.com runs on its server. Here it runs inside the page, rebuilt whenever the engine changes, so every part works offline."
               }
             ],
             "repo": "nicremo/generatestl",

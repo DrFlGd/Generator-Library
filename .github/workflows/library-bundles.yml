@@ -72,3 +72,14 @@ jobs:
       upstream: MartynAllen/bahtinov-mask-generator
       node: '22'
       force: ${{ inputs.force == true }}
+
+  generatestl:
+    uses: ./.github/workflows/library-bundle.yml
+    permissions:
+      contents: write
+    with:
+      id: generatestl
+      name: GenerateSTL
+      upstream: nicremo/generatestl
+      node: '22'
+      force: ${{ inputs.force == true }}

@@ -182,6 +182,10 @@ test("a repository this library builds itself installs the library's own build",
   assert.deepEqual(manifest.distributions.map((d) => d.kind), ['web', 'bundle']);
   assert.deepEqual(manifest.distributions[1].from, { type: 'release', repo: 'DrFlGd/Generator-Library', tag: 'bahtinov-mask-*', asset: 'bahtinov-mask-web-*.zip', prerelease: true });
   assert.equal(libraryBundle('alice/widgets'), null);
+  // GenerateSTL makes its parts on its server, so a mirror of its site cannot.
+  const stl = parseListing(page({ url: 'https://www.generatestl.com/gear-generator/' }), LISTING);
+  assert.deepEqual(manifestFor(stl, facts({ full: 'nicremo/generatestl', staticSite: null })).distributions.map((d) => d.kind), ['web', 'bundle']);
+  assert.deepEqual(manifestFor(stl, null).distributions.map((d) => d.kind), ['web']);
 });
 
 test("the gh-pages branch is used only when it is the generator's own site", () => {
