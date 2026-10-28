@@ -147,6 +147,34 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "url",
+            "asset"
+          ],
+          "properties": {
+            "type": {
+              "const": "page"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^https?://",
+              "description": "The project's download page. The newest file it links to whose name matches asset is installed, and a new file name there is an update."
+            },
+            "asset": {
+              "type": "string",
+              "description": "File name or glob, e.g. MiniSkylines-Desktop-*-setup.exe"
+            },
+            "folder": {
+              "type": "string",
+              "pattern": "^https?://",
+              "description": "Where a file name the page's scripts hold on its own is downloaded from, e.g. https://example.com/downloads/"
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },

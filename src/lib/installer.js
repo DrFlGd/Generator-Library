@@ -1,13 +1,13 @@
 // Turn a distribution into files on disk and a record the library can launch and
-// later compare against GitHub for updates.
+// later compare against GitHub (or the project's download page) for updates.
 //
 // A record looks like:
-//   { id, distKey, kind, install?, version, source: { type, repo, tag?|ref?, sha?, asset? },
+//   { id, distKey, kind, install?, version, source: { type, repo?|url?, tag?|ref?, sha?, asset? },
 //     dir, entry?|exec?, installedAt, sizeBytes, pinned? }
 //
-// `version` is whatever identifies the installed build on GitHub: the release tag
-// for release assets, the commit sha for repository trees. The updater only has to
-// compare that string with the newest one GitHub reports.
+// `version` is whatever identifies the installed build: the release tag for
+// release assets, the commit sha for repository trees, the version in the file
+// name for a download page. The updater only has to compare it with the newest.
 //
 // Each version installs into its own folder. The newest install launches; the
 // one it replaced is kept (library.activate) so the user can switch back.
@@ -16,6 +16,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { distributionKey } from './manifest.js';
 import { extractTarGz, extractZip } from './archive.js';
+import { createWeb, versionFromName } from './web.js';
 
 async function dirSize(dir) {
   let total = 0;
@@ -43,8 +44,12 @@ async function replaceDir(stagingDir, finalDir) {
 // Resolve what the newest available build of a distribution is, without
 // downloading it. Used both before an install and by the update check. `tag`
 // picks one exact release instead of the newest (the version picker).
-export async function resolveLatest(manifest, dist, github, { tag } = {}) {
+export async function resolveLatest(manifest, dist, github, { tag, web = createWeb() } = {}) {
   const from = dist.from;
+  if (from.type === 'page') {
+    const { url, name } = await web.findPageAsset(from.url, from.asset, { folder: from.folder });
+    return { type: 'page', page: from.url, version: versionFromName(name), asset: name, assetUrl: url, htmlUrl: from.url };
+  }
   const repo = from.repo || manifest.repo;
   if (from.type === 'release') {
     const wanted = tag ? { tag, asset: from.asset, prerelease: true } : { tag: from.tag, asset: from.asset, prerelease: from.prerelease };
@@ -89,22 +94,27 @@ async function listFiles(dir, prefix = '') {
 // `builder(dir, build, { onLine })` builds an unpacked repository for a
 // distribution with `build` and returns its output folder (build.js buildProject,
 // given the private Node.js by the caller).
-export async function installDistribution(manifest, dist, { library, github, onProgress = () => {}, tag, keep, builder } = {}) {
+export async function installDistribution(manifest, dist, { library, github, web = createWeb(), onProgress = () => {}, tag, keep, builder } = {}) {
   const distKey = distributionKey(dist);
-  onProgress({ phase: 'resolve', message: tag ? `Looking up ${tag} on GitHub` : 'Looking up the latest build on GitHub' });
-  const latest = await resolveLatest(manifest, dist, github, { tag });
+  const where = dist.from.type === 'page' ? new URL(dist.from.url).hostname : 'GitHub';
+  onProgress({ phase: 'resolve', message: tag ? `Looking up ${tag} on GitHub` : `Looking up the latest build on ${where}` });
+  const latest = await resolveLatest(manifest, dist, github, { tag, web });
   const finalDir = library.versionDir(manifest.id, distKey, latest.version);
   const stagingDir = `${finalDir}.staging`;
   await fs.rm(stagingDir, { recursive: true, force: true });
   await fs.mkdir(stagingDir, { recursive: true });
 
-  const downloadName = latest.type === 'release' ? latest.asset : `${manifest.id}-${latest.sha.slice(0, 12)}.tar.gz`;
+  const downloadName = latest.type === 'repo' ? `${manifest.id}-${latest.sha.slice(0, 12)}.tar.gz` : latest.asset;
   const downloadPath = path.join(library.downloadsDir, `${manifest.id}-${Date.now()}-${downloadName}`);
   onProgress({ phase: 'download', message: `Downloading ${downloadName}`, received: 0, total: latest.size ?? 0 });
-  await github.download(latest.type === 'release' ? latest.assetUrl : github.tarballUrl(latest.repo, latest.sha), downloadPath, {
-    isAsset: latest.type === 'release',
-    onProgress: (p) => onProgress({ phase: 'download', message: `Downloading ${downloadName}`, ...p }),
-  });
+  const downloadProgress = (p) => onProgress({ phase: 'download', message: `Downloading ${downloadName}`, ...p });
+  if (latest.type === 'page') await web.download(latest.assetUrl, downloadPath, { onProgress: downloadProgress });
+  else {
+    await github.download(latest.type === 'release' ? latest.assetUrl : github.tarballUrl(latest.repo, latest.sha), downloadPath, {
+      isAsset: latest.type === 'release',
+      onProgress: downloadProgress,
+    });
+  }
 
   const record = {
     id: manifest.id,
@@ -116,7 +126,9 @@ export async function installDistribution(manifest, dist, { library, github, onP
     publishedAt: latest.publishedAt ?? '',
     source: latest.type === 'release'
       ? { type: 'release', repo: latest.repo, tag: latest.tag, asset: latest.asset }
-      : { type: 'repo', repo: latest.repo, ref: latest.ref, sha: latest.sha, path: latest.path },
+      : latest.type === 'page'
+        ? { type: 'page', url: latest.page, asset: latest.asset }
+        : { type: 'repo', repo: latest.repo, ref: latest.ref, sha: latest.sha, path: latest.path },
     dir: finalDir,
     installedAt: new Date().toISOString(),
   };
@@ -201,10 +213,12 @@ export async function removeVersion(id, distKey, version, { library }) {
   return Boolean(record);
 }
 
-// Compare an installed record with GitHub. Returns { hasUpdate, latest } where
+// Compare an installed record with GitHub or its download page. Returns { hasUpdate, latest } where
 // latest carries the tag or sha so the UI can say what it would install.
-export async function checkForUpdate(manifest, dist, record, github) {
-  const latest = await resolveLatest(manifest, dist, github);
-  const hasUpdate = latest.type === 'release' ? latest.tag !== record.source.tag : latest.sha !== record.source.sha;
+export async function checkForUpdate(manifest, dist, record, github, { web } = {}) {
+  const latest = await resolveLatest(manifest, dist, github, web ? { web } : {});
+  const hasUpdate = latest.type === 'release' ? latest.tag !== record.source.tag
+    : latest.type === 'page' ? latest.asset !== record.source.asset
+      : latest.sha !== record.source.sha;
   return { hasUpdate, latest };
 }

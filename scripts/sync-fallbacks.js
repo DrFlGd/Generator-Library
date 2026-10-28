@@ -14,7 +14,7 @@ const github = createGitHub({ token: process.env.GITHUB_TOKEN ?? '' });
 let failures = 0;
 
 for (const source of raw.sources ?? []) {
-  if (source.overlayOnly) continue;
+  if (source.overlayOnly || !source.repo) continue; // a website source has nothing to read
   const paths = source.manifest ? [source.manifest] : DEFAULT_MANIFEST_PATHS;
   let published = null;
   let publishedPath = '';

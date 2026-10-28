@@ -29,9 +29,12 @@ function strList(value) {
   return [...new Set(value.map(str).filter(Boolean))];
 }
 
-// `from` says where the bytes of a distribution come from. Two shapes:
+// `from` says where the bytes of a distribution come from. Three shapes:
 //   { type: 'release', repo?, tag?, asset }   a GitHub release asset (tag defaults to latest)
 //   { type: 'repo', repo?, ref?, path? }       files committed in the repository tree
+//   { type: 'page', url, asset, folder? }      the newest file a website's download page
+//                                              links to whose name matches `asset`; `folder`
+//                                              is where a name its scripts hold is served (web.js)
 function normalizeFrom(raw, errors, where) {
   if (!raw || typeof raw !== 'object') {
     errors.push(`${where}: missing "from"`);
@@ -64,7 +67,20 @@ function normalizeFrom(raw, errors, where) {
     out.path = path;
     return out;
   }
-  errors.push(`${where}: "from.type" must be "release" or "repo"`);
+  if (type === 'page') {
+    const url = str(raw.url);
+    if (!/^https?:\/\//.test(url)) errors.push(`${where}: page "from.url" must start with http(s)://`);
+    const asset = str(raw.asset);
+    if (!asset) errors.push(`${where}: page "from" needs an "asset" name or glob`);
+    const out = { type, url, asset };
+    const folder = str(raw.folder);
+    if (folder) {
+      if (!/^https?:\/\//.test(folder)) errors.push(`${where}: page "from.folder" must start with http(s)://`);
+      out.folder = folder.endsWith('/') ? folder : `${folder}/`;
+    }
+    return out;
+  }
+  errors.push(`${where}: "from.type" must be "release", "repo" or "page"`);
   return null;
 }
 
@@ -233,7 +249,7 @@ export function normalizeManifest(raw, context = {}) {
     ? raw.distributions.map((d, i) => normalizeDistribution(d, i, errors)).filter(Boolean)
     : [];
   // A website added by link has no repository; only downloads need one to come from.
-  if (!repo && distributions.some((d) => d.from && !d.from.repo)) {
+  if (!repo && distributions.some((d) => d.from && d.from.type !== 'page' && !d.from.repo)) {
     errors.push('"repo" is required when the manifest is not read from a repository');
   }
   if (!Array.isArray(raw.distributions) || raw.distributions.length === 0) {

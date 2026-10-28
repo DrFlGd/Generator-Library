@@ -182,3 +182,33 @@ test('updates keep earlier versions to switch back to, up to the limit', async (
   assert.equal(library.getInstalled('app', dist.key), null);
   assert.deepEqual(library.keptFor('app', dist.key), []);
 });
+
+test('installs the newest download a website links to and finds updates by file name', async () => {
+  const library = await freshLibrary();
+  const { manifest } = normalizeManifest({
+    id: 'site', name: 'Site App',
+    distributions: [{ kind: 'exe', platform: 'linux', from: { type: 'page', url: 'https://example.com/desktop', asset: 'App-*-x86_64.AppImage' } }],
+  });
+  const dist = manifest.distributions[0];
+  const fakeWeb = (version) => ({
+    async findPageAsset(page, glob, { folder }) {
+      assert.equal(page, 'https://example.com/desktop');
+      assert.equal(folder, undefined);
+      assert.equal(glob, 'App-*-x86_64.AppImage');
+      return { url: `https://example.com/downloads/App-${version}-x86_64.AppImage`, name: `App-${version}-x86_64.AppImage` };
+    },
+    async download(url, destination, { onProgress }) {
+      await fs.writeFile(destination, 'ELF');
+      onProgress?.({ received: 3, total: 3 });
+    },
+  });
+  const github = { download: () => assert.fail('a website download never goes through GitHub') };
+  const record = await installDistribution(manifest, dist, { library, github, web: fakeWeb('1.511') });
+  assert.equal(record.version, '1.511');
+  assert.equal(record.exec, 'App-1.511-x86_64.AppImage');
+  assert.deepEqual(record.source, { type: 'page', url: 'https://example.com/desktop', asset: 'App-1.511-x86_64.AppImage' });
+  assert.equal((await checkForUpdate(manifest, dist, record, github, { web: fakeWeb('1.511') })).hasUpdate, false);
+  const newer = await checkForUpdate(manifest, dist, record, github, { web: fakeWeb('1.512') });
+  assert.equal(newer.hasUpdate, true);
+  assert.equal(newer.latest.version, '1.512');
+});

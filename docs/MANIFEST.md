@@ -94,6 +94,16 @@ Prefer a build from source over a `mirror`: a mirror only has what the page load
 - `install`: `portable` runs the downloaded file as is; `installer` runs it once so it can install itself; `zip` unpacks the archive and runs `exec` inside it.
 - `exec`: path of the executable inside a zip (required for `zip`).
 
+An app that publishes its builds on its own website rather than on GitHub uses a download page as `from`:
+
+```json
+{ "kind": "exe", "platform": "linux",
+  "from": { "type": "page", "url": "https://miniskyline.com/desktop", "asset": "MiniSkylines-Desktop-*-x86_64.AppImage",
+            "folder": "https://miniskyline.com/downloads/desktop/" } }
+```
+
+The library reads the page, and the scripts it loads when the download buttons are drawn by JavaScript, for file names matching `asset`, and installs the newest. The version is the number in the file name; a new file name on the page is an update. `folder` is where a file name found on its own in a script is downloaded from (default: the page's folder). Such a project can be listed in the catalog without a repository: `{ "url": "https://miniskyline.com/", "fallback": { ...manifest... } }`.
+
 ### `mirror`: capture a live site with WebMirror
 
 ```json

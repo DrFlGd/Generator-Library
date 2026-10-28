@@ -69,7 +69,7 @@ export function findSum(sums, name) {
 // it is replaced at once, whatever its age.
 export const WEBMIRROR_REQUIREMENT = {
   runtime: 'python',
-  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror', refreshHours: 24, refreshAfter: '2026-10-28T02:43:00Z' }],
+  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror', refreshHours: 24, refreshAfter: '2026-10-28T03:40:00Z' }],
 };
 
 // Whether an installed package spec is due to be installed again.

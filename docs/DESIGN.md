@@ -24,7 +24,8 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/manifest.js` | Validates and normalizes `generator.json` and collections. Pure. |
 | `src/lib/catalog.js` | Reads the catalog, fetches manifests, applies overlays, expands collections. One failure never hides the other sources. |
 | `src/lib/github.js` | Tiny GitHub client: read files, list releases, match an asset by glob, download. Anonymous reads go through `raw.githubusercontent.com` to stay clear of the 60/hour API limit. |
-| `src/lib/installer.js` | Downloads a distribution (release asset or repo tarball), unpacks it safely, records what was installed, compares against the newest tag/commit for updates. |
+| `src/lib/installer.js` | Downloads a distribution (release asset, repo tarball or a file from a download page), unpacks it safely, records what was installed, compares against the newest tag/commit/file name for updates. |
+| `src/lib/web.js` | Finds the newest file a project's own download page offers (reading the page's scripts when JavaScript draws the buttons) and downloads it, without the GitHub token. |
 | `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. Each app gets a port derived from its id, so its origin, and with it the localStorage and IndexedDB it saved, is the same every launch. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
 | `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python with pip packages such as WebMirror, and a private Node.js for builds from source) into the data folder. |

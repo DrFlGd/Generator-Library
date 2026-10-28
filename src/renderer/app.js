@@ -265,6 +265,7 @@ function renderDistribution(g, d) {
   const metaParts = [];
   if (d.url) metaParts.push(d.url);
   if (d.from?.type === 'release') metaParts.push(`GitHub release ${d.from.tag === 'latest' ? '(latest)' : d.from.tag} · ${d.from.asset}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
+  if (d.from?.type === 'page') metaParts.push(`Newest ${d.from.asset} linked from ${d.from.url}`);
   if (d.from?.type === 'repo') metaParts.push(`Repository files${d.from.path ? ` under ${d.from.path}/` : ''}${d.from.ref ? ` at ${d.from.ref}` : ''}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
   const kept = state.data.kept?.[rk] ?? [];
   if (record && record.source?.type !== 'mirror') metaParts.push(`Installed ${record.version}${record.pinned ? ' (chosen version)' : ''}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}${kept.length ? ` · ${kept.length} other version${kept.length === 1 ? '' : 's'} kept` : ''}`);

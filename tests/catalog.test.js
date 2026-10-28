@@ -118,3 +118,22 @@ test('a website source resolves from its overlay without reading GitHub, and dis
   assert.deepEqual(reads, []);
   assert.deepEqual(manifests.map((m) => [m.id, m.source, m.origin]), [['box', 'https://example.com/box/', 'yours']]);
 });
+
+test('the shipped catalog can list a project with no repository by its website', async () => {
+  const fallback = {
+    id: 'site-app', name: 'Site App',
+    distributions: [
+      { kind: 'web', url: 'https://example.com/app' },
+      { kind: 'exe', platform: 'windows', install: 'installer', from: { type: 'page', url: 'https://example.com/download', asset: 'App-*-setup.exe' } },
+    ],
+  };
+  const { catalog, errors } = normalizeCatalog({ sources: [{ url: 'https://example.com/', fallback }, { url: 'https://example.com/' }, { url: 'ftp://x' }] });
+  assert.equal(errors.length, 2, 'a website needs a fallback and an http(s) address');
+  assert.equal(catalog.sources[0].overlayOnly, true);
+  let reads = 0;
+  const { manifests, problems } = await resolveCatalog(catalog, { readJson: async () => { reads += 1; return null; } });
+  assert.deepEqual(problems, []);
+  assert.equal(reads, 0, 'nothing is read from GitHub');
+  assert.equal(manifests[0].source, 'https://example.com/');
+  assert.equal(manifests[0].distributions[1].from.type, 'page');
+});
