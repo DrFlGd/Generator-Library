@@ -1193,6 +1193,157 @@
           }
         ]
       }
+    },
+    {
+      "repo": "CNCKitchen/stlTexturizer",
+      "fallback": {
+        "id": "bumpmesh",
+        "name": "BumpMesh",
+        "summary": "Add displacement textures (knurling, weaves, wood grain, carbon, tire treads and 100 more) to an STL, OBJ, 3MF or STEP model and export a textured STL or 3MF ready to slice.",
+        "description": "By CNC Kitchen. Pick a texture, project it onto the model (triplanar, cubic, cylindrical, spherical, planar or as a one-off stamp), mask faces by angle or by painting, and export the displaced mesh. Up to four texture layers, custom image textures and project files. Everything runs in the browser.",
+        "tags": [
+          "texture",
+          "displacement",
+          "knurling",
+          "stl",
+          "3mf",
+          "step"
+        ],
+        "process": "3d-print",
+        "license": "AGPL-3.0-only",
+        "homepage": "https://bumpmesh.com/",
+        "icon": "logo.png",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://bumpmesh.com/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "release",
+              "repo": "DrFlGd/Generator-Library",
+              "tag": "bumpmesh-*",
+              "asset": "bumpmesh-web-*.zip",
+              "prerelease": true
+            },
+            "notes": "Built from the repository every day by this library's own workflow, with three.js, fflate and meshStep (which it normally loads from a CDN) and all 101 textures included, so it runs fully offline."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "CNCKitchen/gridfinityLabelGenerator",
+      "fallback": {
+        "id": "gridfinity-label-generator",
+        "name": "Gridfinity Label Generator",
+        "summary": "Make embossed STL labels for Gridfinity bins: your own text and icon, or ready-made labels for screws, nuts, washers and heat-set inserts.",
+        "description": "By CNC Kitchen, for Pred's Gridfinity bin with printable label. Pick one of ten fastener icons and two lines of text or a screw profile, choose 1x to 3x width, and export an STL; exporting several predefined labels gives a zip. The text is embossed 0.4 mm for a colour change at layer 3.",
+        "tags": [
+          "gridfinity",
+          "label",
+          "organizer",
+          "stl"
+        ],
+        "process": "3d-print",
+        "license": "MIT",
+        "homepage": "https://cnckitchen.github.io/gridfinityLabelGenerator/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://cnckitchen.github.io/gridfinityLabelGenerator/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "web/dist",
+              "steps": [
+                [
+                  "npm",
+                  "ci",
+                  "--prefix",
+                  "web",
+                  "--ignore-scripts",
+                  "--no-audit",
+                  "--no-fund"
+                ],
+                [
+                  "npm",
+                  "--prefix",
+                  "web",
+                  "run",
+                  "build"
+                ]
+              ]
+            },
+            "notes": "Built on your computer from the repository's source with the library's own Node.js, so it works offline."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "CNCKitchen/meshStep",
+      "fallback": {
+        "id": "meshstep",
+        "name": "meshStep STEP Viewer",
+        "summary": "Open STEP (.step, .stp) CAD files in the browser, inspect the faces and check the mesh, and convert them to a watertight STL or 3MF.",
+        "description": "By CNC Kitchen. The viewer for meshStep, a STEP importer written to make clean, watertight meshes for printing and further processing rather than just for display. Load a STEP file, tune the tessellation, compare against a reference STL, highlight open edges and export. Nothing is uploaded.",
+        "tags": [
+          "step",
+          "stl",
+          "3mf",
+          "convert",
+          "cad",
+          "viewer"
+        ],
+        "process": "tool",
+        "category": "cad",
+        "license": "AGPL-3.0-only",
+        "homepage": "https://cnckitchen.github.io/meshStep/",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://cnckitchen.github.io/meshStep/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "web/dist",
+              "steps": [
+                [
+                  "npm",
+                  "ci",
+                  "--prefix",
+                  "web",
+                  "--ignore-scripts",
+                  "--no-audit",
+                  "--no-fund"
+                ],
+                [
+                  "npm",
+                  "--prefix",
+                  "web",
+                  "run",
+                  "build"
+                ]
+              ]
+            },
+            "notes": "Built on your computer from the repository's source with the library's own Node.js, so it works offline."
+          }
+        ]
+      }
     }
   ]
 }
