@@ -4,6 +4,7 @@ import {
   buildFor,
   buildSources,
   exportsOf,
+  isKnownUrl,
   knownGenerators,
   manifestFor,
   mergeCatalog,
@@ -123,7 +124,7 @@ test('a repository with a web zip release installs that instead of a mirror', ()
   assert.deepEqual(manifest.distributions.slice(1), [
     { kind: 'bundle', label: 'Install offline copy', from: { type: 'release', repo: 'alice/widgets', asset: 'widgets-web-*.zip' } },
     { kind: 'exe', platform: 'windows', install: 'installer', from: { type: 'release', repo: 'alice/widgets', asset: 'Widgets-*-setup.exe' }, label: 'Install desktop app' },
-    { kind: 'exe', platform: 'macos', install: 'installer', from: { type: 'release', repo: 'alice/widgets', asset: 'Widgets-*.dmg' }, label: 'Install desktop app' },
+    { kind: 'exe', platform: 'macos', install: 'installer', from: { type: 'release', repo: 'alice/widgets', asset: 'Widgets-*-arm64.dmg' }, label: 'Install desktop app (Apple silicon)' },
   ]);
   assert.equal(manifest.repo, 'alice/widgets');
   assert.equal(manifest.license, 'MIT');
@@ -155,6 +156,11 @@ test('the importer replaces only its own sources, and the catalog loads them', a
   const known = knownGenerators(catalog);
   assert.ok(known.ids.has('known-one') && known.repos.has('dave/known') && known.urls.has('known.example'));
   assert.ok(!known.ids.has('gone'), 'its own earlier entries do not count as already listed');
+  assert.ok(isKnownUrl(known, 'https://known.example/tools/box/'), 'a page inside a listed site');
+  assert.ok(!isKnownUrl(known, 'https://other.example/'));
+  const mw = knownGenerators({ sources: [{ repo: 'dave/mw', fallback: { id: 'mw', name: 'MW', distributions: [{ kind: 'web', url: 'https://makerworld.com/en/models/123' }] } }] });
+  assert.ok(isKnownUrl(mw, 'https://makerworld.com/de/models/123-some-slug#profileId-9'), 'a MakerWorld model by its number');
+  assert.ok(!isKnownUrl(mw, 'https://makerworld.com/en/models/1234-other'));
 
   const listing = parseListing(page(), LISTING);
   const withRepo = manifestFor(parseListing(page({ name: 'Boxer' }), 'https://skipthecad.com/generators/boxer/'), facts({ staticSite: '' }));

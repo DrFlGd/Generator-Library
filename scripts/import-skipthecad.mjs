@@ -25,7 +25,7 @@ export const SITE = 'https://skipthecad.com/';
 const UA = 'GeneratorLibraryCatalog/1.0 (+https://github.com/DrFlGd/Generator-Library)';
 const NOT_REPO_OWNERS = new Set(['sponsors', 'features', 'orgs', 'topics', 'marketplace', 'apps', 'login', 'about', 'settings', 'site', 'simplysolid3d']);
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
-const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/];
+const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/];
 
 // ───────────────────────────── parsing a listing ─────────────────────────────
 
@@ -158,12 +158,19 @@ export function offlineFromRepo(facts) {
   if (webZip) {
     out.push({ kind: 'bundle', label: 'Install offline copy', from: { type: 'release', repo, asset: assetGlob(webZip) } });
   }
+  // One build per platform; a Mac can have one for Apple silicon and one for Intel.
   const seen = new Set();
   for (const asset of assets) {
     const dist = desktopFrom(asset, repo);
-    if (!dist || /arm64|aarch64/i.test(asset) || seen.has(dist.platform)) continue;
-    seen.add(dist.platform);
-    out.push({ ...dist, label: 'Install desktop app' });
+    if (!dist) continue;
+    const arm = /arm64|aarch64|apple[-_ ]?silicon/i.test(asset);
+    const intel = /x64|x86[-_]64|amd64|intel/i.test(asset);
+    if (arm && dist.platform !== 'macos') continue;
+    const slot = dist.platform === 'macos' ? `macos-${arm ? 'arm' : intel ? 'intel' : 'any'}` : dist.platform;
+    if (seen.has(slot) || (dist.platform === 'macos' && seen.has('macos-any')) || (slot === 'macos-any' && [...seen].some((x) => x.startsWith('macos')))) continue;
+    seen.add(slot);
+    const label = slot === 'macos-arm' ? 'Install desktop app (Apple silicon)' : slot === 'macos-intel' ? 'Install desktop app (Intel Mac)' : 'Install desktop app';
+    out.push({ ...dist, label });
   }
   if (!webZip) {
     const build = buildFor(facts);
@@ -274,14 +281,35 @@ export function manifestFor(listing, facts) {
 
 // ───────────────────────────── the catalog ─────────────────────────────
 
-const urlKey = (url) => {
+// A comparable form of an address: no scheme, www, query or trailing slash, and
+// a MakerWorld model by its number alone, since its slug and language vary.
+export const urlKey = (url) => {
   try {
     const u = new URL(url);
-    return `${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}`.toLowerCase();
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    const model = host === 'makerworld.com' && u.pathname.match(/\/models\/(\d+)/);
+    if (model) return `makerworld.com/models/${model[1]}`;
+    return `${host}${u.pathname.replace(/\/+$/, '')}`.toLowerCase();
   } catch {
     return '';
   }
 };
+
+// Sites that host many people's generators, where one listed page says nothing
+// about the rest of the site.
+const SHARED_HOSTS = /^(?:makerworld\.com|github\.com|huggingface\.co|printables\.com|thingiverse\.com|cults3d\.com|crealitycloud\.com)$/;
+
+// Listed already: the same address, or a page inside a site the catalog
+// already lists as a whole (vostoklabs.github.io covers vostoklabs.github.io/magnet).
+export function isKnownUrl(known, url) {
+  const key = urlKey(url);
+  if (!key) return false;
+  if (known.urls.has(key)) return true;
+  const parts = key.split('/');
+  if (SHARED_HOSTS.test(parts[0])) return false;
+  for (let n = parts.length - 1; n >= 1; n -= 1) if (known.urls.has(parts.slice(0, n).join('/'))) return true;
+  return false;
+}
 
 // What the rest of the catalog already lists, so SkipTheCAD copies are skipped.
 export function knownGenerators(catalog) {
@@ -461,7 +489,7 @@ async function main() {
       }
     }
     const manifest = manifestFor(listing, facts);
-    if (known.ids.has(manifest.id) || known.urls.has(urlKey(listing.url)) || (manifest.repo && known.repos.has(manifest.repo.toLowerCase()))) {
+    if (known.ids.has(manifest.id) || isKnownUrl(known, listing.url) || (manifest.repo && known.repos.has(manifest.repo.toLowerCase()))) {
       console.log(`already listed: ${listing.name}`);
       continue;
     }

@@ -13,6 +13,7 @@ import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';
 import { facets, search } from '../src/lib/search.js';
 import { currentPlatform, distributionKey, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
 import { mimeFor } from '../src/lib/server.js';
+import { applyTagEdits, normalizeTags } from '../src/lib/library.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rendererDir = path.join(root, 'src', 'renderer');
@@ -26,6 +27,7 @@ const mock = {
   installed: {},
   kept: {}, // `${id}/${distKey}` -> older records
   favorites: [],
+  tagEdits: {},
   recent: [],
   sources: [],
   jobs: [],
@@ -46,7 +48,7 @@ if (process.env.MOCK_OLD_MIRROR) {
 const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
 
 function all() {
-  return [...manifests, ...mock.added.map((a) => a.manifest)];
+  return [...manifests, ...mock.added.map((a) => a.manifest)].map((m) => (mock.tagEdits[m.id] ? { ...m, tags: applyTagEdits(m.tags, mock.tagEdits[m.id]), catalogTags: m.tags } : m));
 }
 
 function state() {
@@ -74,7 +76,7 @@ function state() {
     dataLocation: { dir: 'E:\\Generator Library\\Generator Library Data', mode: 'legacy', portable: true, suggested: 'E:\\Generator Library\\Generator Library Data' },
     catalogSource: 'mock',
     problems,
-    facets: facets(manifests),
+    facets: facets(all()),
     generators: all().filter((m) => !mock.removed.includes(m.repo)).map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
   };
 }
@@ -138,6 +140,18 @@ const handlers = {
   toggleFavorite: ({ id }) => {
     mock.favorites = mock.favorites.includes(id) ? mock.favorites.filter((x) => x !== id) : [...mock.favorites, id];
     return mock.favorites.includes(id);
+  },
+  setFavorite: ({ id, favorite }) => {
+    mock.favorites = favorite ? [...mock.favorites.filter((x) => x !== id), id] : mock.favorites.filter((x) => x !== id);
+    return state();
+  },
+  setTags: ({ id, tags }) => {
+    const base = normalizeTags([...manifests, ...mock.added.map((a) => a.manifest)].find((m) => m.id === id).tags);
+    const wanted = normalizeTags(tags ?? base);
+    const edit = { added: wanted.filter((t) => !base.includes(t)), removed: base.filter((t) => !wanted.includes(t)) };
+    if (edit.added.length || edit.removed.length) mock.tagEdits[id] = edit;
+    else delete mock.tagEdits[id];
+    return state();
   },
   updateSettings: (patch) => {
     Object.assign(mock.settings, patch);
