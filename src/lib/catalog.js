@@ -5,6 +5,8 @@
 //
 // A source is { repo, manifest?, fallback?, overlay?, enabled? }:
 //   repo       owner/name on GitHub
+//   url        instead of `repo`, the website of a project with no repository;
+//              its fallback is then all there is to read
 //   manifest   path of generator.json or generator-library.json in the repo
 //              (default: try both at the root)
 //   fallback   a snapshot of the manifest (or collection, with its entries
@@ -25,16 +27,24 @@ export function normalizeCatalog(raw) {
   const sources = Array.isArray(raw.sources) ? raw.sources : [];
   const out = [];
   sources.forEach((source, i) => {
-    if (!source || typeof source !== 'object' || typeof source.repo !== 'string') {
-      errors.push(`sources[${i}]: needs a "repo"`);
+    // A project with no repository is listed by its website and described
+    // entirely by its fallback.
+    const site = typeof source?.url === 'string' && /^https?:\/\//.test(source.url) ? source.url : '';
+    if (!source || typeof source !== 'object' || (typeof source.repo !== 'string' && !site)) {
+      errors.push(`sources[${i}]: needs a "repo" or a website "url"`);
+      return;
+    }
+    if (typeof source.repo !== 'string' && !source.fallback) {
+      errors.push(`sources[${i}]: a website source needs a "fallback"`);
       return;
     }
     out.push({
-      repo: source.repo,
+      repo: typeof source.repo === 'string' ? source.repo : '',
+      url: site,
       manifest: typeof source.manifest === 'string' ? source.manifest.replace(/^\/+/, '') : '',
       fallback: source.fallback && typeof source.fallback === 'object' ? source.fallback : null,
       overlay: source.overlay && typeof source.overlay === 'object' ? source.overlay : null,
-      overlayOnly: source.overlayOnly === true,
+      overlayOnly: source.overlayOnly === true || typeof source.repo !== 'string',
       enabled: source.enabled !== false,
       note: typeof source.note === 'string' ? source.note : '',
     });

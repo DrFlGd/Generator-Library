@@ -12,9 +12,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["repo"],
+        "anyOf": [{ "required": ["repo"] }, { "required": ["url", "fallback"] }],
         "properties": {
           "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          "url": { "type": "string", "pattern": "^https?://", "description": "Instead of repo: the website of a project with no repository, described entirely by its fallback." },
           "manifest": { "type": "string", "description": "Path of the manifest in the repository. Default: generator.json, then generator-library.json, at the root." },
           "fallback": { "type": "object", "description": "A snapshot of the repository's manifest (collections with their entries inlined), used only when the repository cannot be read. Refresh with `npm run sync:fallbacks`." },
           "overlay": { "type": "object", "description": "A generator or collection manifest merged over what the repository publishes (overlay wins)." },

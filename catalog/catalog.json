@@ -1094,6 +1094,80 @@
           }
         ]
       }
+    },
+    {
+      "url": "https://miniskyline.com/",
+      "fallback": {
+        "id": "mini-skyline",
+        "name": "Mini Skyline",
+        "summary": "Turn any place into a 3D-printable model: city skylines, terrain, landmarks, racetracks, golf courses, the Moon and Mars, exported as slicer-ready 3MF.",
+        "description": "Pick an area on a map and Mini Skyline builds a printable relief with buildings, roads, water and terrain, ready for multi-colour printing. The free desktop app makes bigger maps than the website and saves to normal files; both download map data from public sources while you work, so making a new map needs the internet.",
+        "tags": [
+          "maps",
+          "city",
+          "terrain",
+          "3mf",
+          "landmarks"
+        ],
+        "process": "3d-print",
+        "homepage": "https://miniskyline.com/",
+        "icon": "https://miniskyline.com/favicon.ico",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://miniskyline.com/map",
+            "label": "Open online"
+          },
+          {
+            "kind": "exe",
+            "platform": "windows",
+            "install": "installer",
+            "from": {
+              "type": "page",
+              "url": "https://miniskyline.com/desktop",
+              "asset": "MiniSkylines-Desktop-*-setup.exe",
+              "folder": "https://miniskyline.com/downloads/desktop/"
+            },
+            "label": "Install desktop app"
+          },
+          {
+            "kind": "exe",
+            "platform": "macos",
+            "install": "installer",
+            "from": {
+              "type": "page",
+              "url": "https://miniskyline.com/desktop",
+              "asset": "MiniSkylines-Desktop-*-mac-arm64.dmg",
+              "folder": "https://miniskyline.com/downloads/desktop/"
+            },
+            "label": "Install desktop app (Apple silicon)"
+          },
+          {
+            "kind": "exe",
+            "platform": "macos",
+            "install": "installer",
+            "from": {
+              "type": "page",
+              "url": "https://miniskyline.com/desktop",
+              "asset": "MiniSkylines-Desktop-*-mac-x64.dmg",
+              "folder": "https://miniskyline.com/downloads/desktop/"
+            },
+            "label": "Install desktop app (Intel Mac)"
+          },
+          {
+            "kind": "exe",
+            "platform": "linux",
+            "install": "portable",
+            "from": {
+              "type": "page",
+              "url": "https://miniskyline.com/desktop",
+              "asset": "MiniSkylines-Desktop-*-x86_64.AppImage",
+              "folder": "https://miniskyline.com/downloads/desktop/"
+            },
+            "label": "Install desktop app"
+          }
+        ]
+      }
     }
   ]
 }
