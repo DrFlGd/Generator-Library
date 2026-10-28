@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bahtinov Mask Generator</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Bahtinov Mask Generator</h1>
+    <p>A focusing mask sized to your telescope, as an STL. Print it with the open collar end down; it needs no supports.</p>
+  </header>
+  <main>
+    <form id="form" autocomplete="off">
+      <fieldset>
+        <legend>Your telescope</legend>
+        <div id="basic" class="fields"></div>
+      </fieldset>
+      <details>
+        <summary>Advanced</summary>
+        <div id="advanced" class="fields"></div>
+        <button type="button" id="reset" class="link">Reset to defaults</button>
+      </details>
+    </form>
+    <section class="preview" aria-label="Preview">
+      <svg id="preview" role="img" aria-label="Top view of the mask"></svg>
+      <dl id="stats"></dl>
+      <p id="problem" class="problem" hidden></p>
+      <button type="button" id="download">Download STL</button>
+    </section>
+  </main>
+  <footer>
+    Mask engine by Martyn Allen, MIT licence (LICENSE-engine.txt), from
+    <a href="https://github.com/MartynAllen/bahtinov-mask-generator">github.com/MartynAllen/bahtinov-mask-generator</a>.
+    His own generator, with a guide to focusing with the mask, is at
+    <a href="https://astromar.co.uk/guide/bahtinov-mask-focusing">astromar.co.uk</a>.
+  </footer>
+</body>
+</html>

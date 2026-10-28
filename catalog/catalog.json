@@ -3255,9 +3255,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://shahidhussain-srti.github.io/dabba/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "ShahidHussain-srti/dabba"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
               }
             ],
             "repo": "ShahidHussain-srti/dabba",
@@ -3388,7 +3392,8 @@
                   "type": "repo",
                   "repo": "timiliris/esp32-box"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet.",
+                "entry": "builder.html"
               }
             ],
             "repo": "timiliris/esp32-box",
@@ -4529,7 +4534,7 @@
                   "type": "repo",
                   "repo": "nickelilltroll/car-mount-phone-holder-generator"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "nickelilltroll/car-mount-phone-holder-generator"
@@ -4592,9 +4597,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://erikeppinger.github.io/Edge_Lift_Designer/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "erikeppinger/Edge_Lift_Designer"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
               }
             ],
             "repo": "erikeppinger/Edge_Lift_Designer",
@@ -5132,9 +5141,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://chronosauros.github.io/diffuser-generator/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "Chronosauros/diffuser-generator"
+                },
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "Chronosauros/diffuser-generator",
@@ -6555,7 +6568,7 @@
                   "type": "repo",
                   "repo": "caique-lima/where-is-my-pick"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from unpkg.com, so it still needs the internet."
               }
             ],
             "repo": "caique-lima/where-is-my-pick"
@@ -9139,7 +9152,7 @@
                   "type": "repo",
                   "repo": "fr33n0w/PixelSculpt"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdnjs.cloudflare.com, so it still needs the internet."
               }
             ],
             "repo": "fr33n0w/PixelSculpt"
@@ -9574,9 +9587,14 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://grabtharshammer.github.io/gpx2stl/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "grabtharshammer/gpx2stl",
+                  "path": "web"
+                },
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "grabtharshammer/gpx2stl"
@@ -9653,9 +9671,14 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://gpxtruder.xyz/",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "anoved/gpxtruder",
+                  "ref": "gh-pages"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
               }
             ],
             "repo": "anoved/gpxtruder",
@@ -9685,9 +9708,14 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://maps.gsi.go.jp/index_3d.html?z=13&lat=35.3606&lon=138.7274&pxsize=1024&ls=std",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "gsi-cyberjapan/gsimaps"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet.",
+                "entry": "index_3d.html"
               }
             ],
             "repo": "gsi-cyberjapan/gsimaps",
@@ -10625,9 +10653,16 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://astromar.co.uk/learn/bahtinov-mask-focusing",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "release",
+                  "repo": "DrFlGd/Generator-Library",
+                  "tag": "bahtinov-mask-*",
+                  "asset": "bahtinov-mask-web-*.zip",
+                  "prerelease": true
+                },
+                "notes": "A page this library made around the repository's mask engine, rebuilt whenever the engine changes. It runs fully offline."
               }
             ],
             "repo": "MartynAllen/bahtinov-mask-generator",
@@ -12674,7 +12709,7 @@
                   "type": "repo",
                   "repo": "juliaogris/platonic"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, fonts.googleapis.com, so it still needs the internet."
               }
             ],
             "repo": "juliaogris/platonic",
@@ -12784,7 +12819,7 @@
                   "type": "repo",
                   "repo": "user-will/svg2stencil"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "user-will/svg2stencil",
@@ -12921,9 +12956,14 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://randall-frank.github.io/wheel_studio/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "randall-frank/wheel_studio",
+                  "ref": "gh-pages"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
               }
             ],
             "repo": "randall-frank/wheel_studio",
@@ -13519,7 +13559,7 @@
                   "type": "repo",
                   "repo": "karpatic/amazering"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, cdnjs.cloudflare.com, unpkg.com, so it still needs the internet."
               }
             ],
             "repo": "karpatic/amazering"
@@ -14481,7 +14521,7 @@
                   "repo": "erich666/Mineways",
                   "path": "docs"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from code.jquery.com, cse.google.com, so it still needs the internet."
               }
             ],
             "repo": "erich666/Mineways"
@@ -14964,9 +15004,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://somebox.github.io/shapemaker/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "somebox/shapemaker"
+                },
+                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
               }
             ],
             "repo": "somebox/shapemaker",
@@ -15181,9 +15225,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://filipchalupa.cz/scrabble-3d-generator/",
-                "githubPagesFiles": false
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "FilipChalupa/scrabble-3d-generator"
+                },
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "FilipChalupa/scrabble-3d-generator",
@@ -15908,7 +15956,7 @@
                   "type": "repo",
                   "repo": "Niek/wifi-stand"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "Niek/wifi-stand"
@@ -17418,9 +17466,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://techjeeper.github.io/SilhouType/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "TechJeeper/SilhouType"
+                },
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, fonts.googleapis.com, so it still needs the internet."
               }
             ],
             "repo": "TechJeeper/SilhouType"
@@ -18016,7 +18068,7 @@
                   "type": "repo",
                   "repo": "Lopo/ChipTrayGenerator"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, cdnjs.cloudflare.com, so it still needs the internet."
               }
             ],
             "repo": "Lopo/ChipTrayGenerator",
@@ -19320,7 +19372,7 @@
                   "type": "repo",
                   "repo": "tohaimate/skadisgen"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "tohaimate/skadisgen",
@@ -19654,9 +19706,13 @@
                 "label": "Open online"
               },
               {
-                "kind": "mirror",
-                "url": "https://philhoyt.github.io/Storehouse-Bin-Generator/",
-                "githubPagesFiles": true
+                "kind": "bundle",
+                "label": "Install offline copy",
+                "from": {
+                  "type": "repo",
+                  "repo": "philhoyt/Storehouse-Bin-Generator"
+                },
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, cdnjs.cloudflare.com, fonts.googleapis.com, so it still needs the internet."
               }
             ],
             "repo": "philhoyt/Storehouse-Bin-Generator"
@@ -20671,7 +20727,7 @@
                   "type": "repo",
                   "repo": "knnurl/tenebrae-studio"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from fonts.googleapis.com, so it still needs the internet."
               }
             ],
             "repo": "knnurl/tenebrae-studio",
@@ -20761,7 +20817,7 @@
                   "type": "repo",
                   "repo": "juliaogris/twirly"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, so it still needs the internet."
               }
             ],
             "repo": "juliaogris/twirly",
@@ -20850,7 +20906,7 @@
                   "type": "repo",
                   "repo": "gewoonkees132/Vasecreator"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "notes": "The web page files from the repository, served on your computer. It loads code or fonts from cdn.jsdelivr.net, fonts.googleapis.com, so it still needs the internet."
               }
             ],
             "repo": "gewoonkees132/Vasecreator",

@@ -10,7 +10,8 @@
 // - Always a link to the generator itself (MakerWorld models stay links only).
 // - With a GitHub repository: an offline copy from its releases (a web zip or
 //   desktop builds), or built from source when it is a plain Vite or Create
-//   React App project, or the static files it publishes; never a mirror.
+//   React App project, or the static files it publishes (from its default
+//   branch or its gh-pages branch); a mirror only when none of those works.
 // - Without one: a WebMirror copy, but only for free tools that need no account
 //   and run in the browser, and not for AI tools, which run on their servers.
 // Generators the catalog already lists (same id, address or repository) are
@@ -27,6 +28,20 @@ const NOT_REPO_OWNERS = new Set(['sponsors', 'features', 'orgs', 'topics', 'mark
 // Listings of generators the catalog has under another address (a MakerLab
 // page for an app the catalog lists by its repository): SkipTheCAD slug → catalog id.
 const SAME_AS = { 'makerlab-folding-box-generator': 'foldbox', 'makerlab-clicker-generator': 'clicker-generator' };
+// Repositories this library builds itself (scripts/bundles/<id>.sh, published by
+// library-bundles.yml) because their own files are not a page that runs offline.
+const LIBRARY_BUNDLES = {
+  'martynallen/bahtinov-mask-generator': {
+    id: 'bahtinov-mask',
+    notes: "A page this library made around the repository's mask engine, rebuilt whenever the engine changes. It runs fully offline.",
+  },
+};
+export function libraryBundle(repo) {
+  const known = LIBRARY_BUNDLES[repo.toLowerCase()];
+  if (!known) return null;
+  const { id, notes } = known;
+  return { kind: 'bundle', label: 'Install offline copy', from: { type: 'release', repo: 'DrFlGd/Generator-Library', tag: `${id}-*`, asset: `${id}-web-*.zip`, prerelease: true }, notes };
+}
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
 const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/, /(^|\.)alpaco\.it$/];
 
@@ -152,8 +167,31 @@ function desktopFrom(asset, repo) {
   return null;
 }
 
-// Offline distributions a repository supports, best first.
-export function offlineFromRepo(facts) {
+function safePath(url) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return '';
+  }
+}
+
+// Whether `url` is the site a repository's gh-pages branch publishes, rather than
+// its documentation or a project page for a tool hosted elsewhere.
+export function isPagesSite(url, repo, cname = '') {
+  try {
+    const u = new URL(url);
+    const [owner, name] = repo.toLowerCase().split('/');
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (cname) return host === cname.replace(/^www\./, '');
+    return host === `${owner}.github.io` && u.pathname.toLowerCase().split('/')[1] === name;
+  } catch {
+    return false;
+  }
+}
+
+// Offline distributions a repository supports, best first. `url` is where the
+// generator runs online.
+export function offlineFromRepo(facts, url = '') {
   const repo = facts.full;
   const out = [];
   const assets = (facts.releases?.find((r) => !r.pre && r.assets.length) ?? facts.releases?.[0])?.assets ?? [];
@@ -179,13 +217,23 @@ export function offlineFromRepo(facts) {
     const build = buildFor(facts);
     if (build) {
       out.push({ kind: 'bundle', label: 'Build offline copy', from: { type: 'repo', repo }, build, notes: "Built on your computer from the repository's source with the library's own Node.js." });
-    } else if (!facts.pkg || !Object.keys(facts.pkg).length) {
+    } else {
       const site = facts.staticSite;
-      if (site !== undefined && site !== null && facts.tscOutFile) {
+      const hosted = site !== undefined && site !== null;
+      const noBuild = !Object.values(facts.pkg ?? {}).some((p) => p.scripts?.build);
+      const pages = facts.pagesBranch;
+      if (hosted && facts.tscOutFile && !Object.keys(facts.pkg ?? {}).length) {
         // Plain TypeScript compiled to one script that the page loads but the repository does not commit.
         out.push({ kind: 'bundle', label: 'Build offline copy', from: { type: 'repo', repo }, build: { output: site || '.', steps: [TSC] }, notes: "Compiled on your computer from the repository's TypeScript with the library's own Node.js." });
-      } else if (site !== undefined && site !== null) {
-        out.push({ kind: 'bundle', label: 'Install offline copy', from: site ? { type: 'repo', repo, path: site } : { type: 'repo', repo }, notes: 'The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet.' });
+      } else if (hosted && noBuild && !facts.staticRefs?.missing.length) {
+        const bundle = { kind: 'bundle', label: 'Install offline copy', from: site ? { type: 'repo', repo, path: site } : { type: 'repo', repo }, notes: staticNotes(facts.staticRefs?.hosts) };
+        // The generator is another page of the site (index_3d.html).
+        const page = /\/([\w.-]+\.html?)$/i.exec(safePath(url))?.[1];
+        if (page && page !== 'index.html' && facts.staticPages?.includes(page)) bundle.entry = page;
+        out.push(bundle);
+      } else if (pages && !pages.missing.length && isPagesSite(url, repo, pages.cname)) {
+        // The site as GitHub Pages publishes it, built or not.
+        out.push({ kind: 'bundle', label: 'Install offline copy', from: { type: 'repo', repo, ref: pages.ref }, notes: staticNotes(pages.hosts) });
       }
     }
   }
@@ -193,6 +241,50 @@ export function offlineFromRepo(facts) {
 }
 
 const TSC = ['npx', '-p', 'typescript@5', 'tsc'];
+
+function staticNotes(hosts = []) {
+  const base = 'The web page files from the repository, served on your computer.';
+  return hosts.length ? `${base} It loads code or fonts from ${hosts.join(', ')}, so it still needs the internet.` : `${base} Anything the page loads from other sites still needs the internet.`;
+}
+
+// Ads and analytics: the page works without them.
+const TRACKERS = /(^|\.)(googlesyndication\.com|google-analytics\.com|googletagmanager\.com|doubleclick\.net|plausible\.io|cloudflareinsights\.com|umami\.is|clarity\.ms|goatcounter\.com|vercel-insights\.com|statcounter\.com)$/i;
+
+// The scripts and stylesheets a page loads: files it needs that the repository
+// does not have (an uncommitted build, a base path, its own site's address) and
+// the other sites it loads from. `dir` is the folder the page is served from.
+export function pageRefs(html, files, dir = '') {
+  const have = new Set(files);
+  const inDir = (p) => (dir ? `${dir}/${p}` : p);
+  const missing = [];
+  const hosts = new Set();
+  const refs = [];
+  for (const [, tag, attrs] of String(html).matchAll(/<(script|link)\b([^>]*)>/gi)) {
+    if (tag.toLowerCase() === 'link' && !/\brel\s*=\s*["']?(stylesheet|modulepreload|preload)\b/i.test(attrs)) continue;
+    const ref = attrs.match(/\b(?:src|href)\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (ref) refs.push(ref);
+  }
+  const inline = [...String(html).matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
+  // Modules an inline script imports by path.
+  for (const body of inline) for (const m of body.matchAll(/\b(?:from|import)\s*\(?\s*["'](\.{0,2}\/[^"']+)["']/g)) refs.push(m[1]);
+  for (const ref of refs) {
+    if (/^(data|blob):/i.test(ref)) continue;
+    const clean = ref.replace(/[?#].*$/, '');
+    if (/^(https?:)?\/\//i.test(clean)) {
+      const url = new URL(clean, 'https://x/');
+      // A page that loads its own files from its own site's address.
+      if (have.has(inDir(url.pathname.replace(/^\/+/, '')))) missing.push(ref);
+      else hosts.add(url.host);
+      continue;
+    }
+    const file = clean.startsWith('/') ? inDir(clean.replace(/^\/+/, '')) : path.posix.normalize(path.posix.join(dir || '.', clean));
+    if (!have.has(file)) missing.push(ref);
+  }
+  for (const body of inline) {
+    for (const [url] of body.matchAll(/https:\/\/[\w.-]+\/[^\s"'`)]*\.(?:m?js|css|wasm)\b|https:\/\/[\w.-]+\/npm\/[^\s"'`)]+/g)) hosts.add(new URL(url).host);
+  }
+  return { missing, hosts: [...hosts].filter((h) => !TRACKERS.test(h)).sort() };
+}
 
 // The single output file a root tsconfig.json names, when the repository does not commit it.
 // tsconfig allows comments and trailing commas.
@@ -257,7 +349,10 @@ export function manifestFor(listing, facts) {
       distributions.push({ kind: 'web', url: other, label: 'Open on MakerWorld' });
     }
   }
-  if (repo) distributions.push(...offlineFromRepo(facts));
+  if (repo) {
+    const own = libraryBundle(repo);
+    distributions.push(...(own ? [own] : offlineFromRepo(facts, listing.url)));
+  }
   const offline = distributions.some((d) => d.kind !== 'web');
   const mirrorable = /browser/.test(runsOn) && pricing === 'free' && !account && listing.category?.slug !== 'ai-3d' && !NO_MIRROR_HOSTS.some((re) => re.test(host(listing.url)));
   if (!offline && mirrorable && listing.url) distributions.push({ kind: 'mirror', url: listing.url, githubPagesFiles: /\.github\.io$/.test(host(listing.url)) });
@@ -458,6 +553,24 @@ export async function repoFacts(name, token) {
     }
   }
   const staticSite = STATIC_DIRS.find((dir) => files.includes(dir ? `${dir}/index.html` : 'index.html'));
+  const raw = async (ref, file) => {
+    try {
+      return await fetchText(`https://raw.githubusercontent.com/${full}/${ref}/${file}`);
+    } catch {
+      return '';
+    }
+  };
+  const staticPages = staticSite === undefined ? [] : files.filter((f) => f.startsWith(staticSite ? `${staticSite}/` : '') && /\.html?$/i.test(f)).map((f) => f.slice(staticSite ? staticSite.length + 1 : 0)).filter((f) => !f.includes('/'));
+  const staticRefs = staticSite === undefined ? null : pageRefs(await raw(meta.default_branch, staticSite ? `${staticSite}/index.html` : 'index.html'), files, staticSite);
+  let pagesBranch = null;
+  if (meta.default_branch !== 'gh-pages') {
+    const pagesTree = await github(`repos/${full}/git/trees/gh-pages?recursive=1`, token).catch(() => null);
+    const pagesFiles = (pagesTree?.tree ?? []).filter((t) => t.type === 'blob').map((t) => t.path);
+    if (pagesFiles.includes('index.html')) {
+      const cname = pagesFiles.includes('CNAME') ? (await raw('gh-pages', 'CNAME')).trim().toLowerCase() : '';
+      pagesBranch = { ref: 'gh-pages', cname, ...pageRefs(await raw('gh-pages', 'index.html'), pagesFiles) };
+    }
+  }
   return {
     name,
     full,
@@ -468,6 +581,9 @@ export async function repoFacts(name, token) {
     pkg,
     staticSite: staticSite === undefined ? null : staticSite,
     tscOutFile: tsc,
+    staticRefs,
+    staticPages,
+    pagesBranch,
   };
 }
 
