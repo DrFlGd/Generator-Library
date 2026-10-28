@@ -2948,11 +2948,6 @@
                 "kind": "web",
                 "url": "https://alpaco.it/generators/case/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://alpaco.it/generators/case/",
-                "githubPagesFiles": false
               }
             ]
           },
@@ -10552,11 +10547,6 @@
                 "kind": "web",
                 "url": "https://alpaco.it/generators/gears/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://alpaco.it/generators/gears/",
-                "githubPagesFiles": false
               }
             ]
           },
@@ -10582,11 +10572,6 @@
                 "kind": "web",
                 "url": "https://alpaco.it/generators/hose/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://alpaco.it/generators/hose/",
-                "githubPagesFiles": false
               }
             ]
           },
@@ -13561,11 +13546,6 @@
                 "kind": "web",
                 "url": "https://alpaco.it/generators/bases/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://alpaco.it/generators/bases/",
-                "githubPagesFiles": false
               }
             ]
           },
@@ -13591,11 +13571,6 @@
                 "kind": "web",
                 "url": "https://alpaco.it/generators/deckbox/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://alpaco.it/generators/deckbox/",
-                "githubPagesFiles": false
               }
             ]
           },
