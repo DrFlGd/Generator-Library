@@ -14699,12 +14699,23 @@
               },
               {
                 "kind": "bundle",
-                "label": "Install offline copy",
+                "label": "Build offline copy",
                 "from": {
                   "type": "repo",
                   "repo": "marian42/partdesigner"
                 },
-                "notes": "The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet."
+                "build": {
+                  "output": ".",
+                  "steps": [
+                    [
+                      "npx",
+                      "-p",
+                      "typescript@5",
+                      "tsc"
+                    ]
+                  ]
+                },
+                "notes": "Compiled on your computer from the repository's TypeScript with the library's own Node.js."
               }
             ],
             "repo": "marian42/partdesigner",
