@@ -28,7 +28,7 @@ const NOT_REPO_OWNERS = new Set(['sponsors', 'features', 'orgs', 'topics', 'mark
 // page for an app the catalog lists by its repository): SkipTheCAD slug → catalog id.
 const SAME_AS = { 'makerlab-folding-box-generator': 'foldbox', 'makerlab-clicker-generator': 'clicker-generator' };
 // Hosts whose pages need their own servers or an account, so a mirror can't run them.
-const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/];
+const NO_MIRROR_HOSTS = [/(^|\.)makerworld\.com$/, /(^|\.)huggingface\.co$/, /(^|\.)hf\.space$/, /(^|\.)thingiverse\.com$/, /(^|\.)printables\.com$/, /(^|\.)crealitycloud\.com$/, /(^|\.)useless\.works$/, /(^|\.)thavision\.com$/, /(^|\.)vextrude\.com$/, /(^|\.)perplexinglabs\.com$/, /(^|\.)alpaco\.it$/];
 
 // ───────────────────────────── parsing a listing ─────────────────────────────
 
