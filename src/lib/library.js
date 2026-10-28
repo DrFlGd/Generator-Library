@@ -5,6 +5,8 @@
 //   <dataDir>/library.json
 //   <dataDir>/apps/<id>/<distKey>@<version>/...  unpacked bundles and executables,
 //                                         one folder per kept version
+//   <dataDir>/apps/<id>/source@<commit>/  a copy of the generator's repository,
+//                                         kept to work on (source.js)
 //   <dataDir>/downloads/                  temporary archives
 //   <dataDir>/catalog.json                last catalog fetched from GitHub
 //   <dataDir>/runtimes/                   private runtimes such as Python (runtimes.js)
@@ -99,7 +101,7 @@ export function editCollections(collections, op, now = Date.now()) {
 }
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {}, edits: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {}, edits: {}, code: {} };
 }
 
 export class Library {
@@ -121,7 +123,7 @@ export class Library {
       this.state = emptyState();
     }
     if (this.state.root && this.state.root !== this.dataDir) {
-      for (const key of ['installed', 'kept', 'runtimes']) this.state[key] = rebasePaths(this.state[key], this.state.root, this.dataDir);
+      for (const key of ['installed', 'kept', 'runtimes', 'code']) this.state[key] = rebasePaths(this.state[key], this.state.root, this.dataDir);
       this.state.root = this.dataDir;
       await this.save();
     }
@@ -164,6 +166,21 @@ export class Library {
 
   installedIds() {
     return new Set(Object.values(this.state.installed).map((r) => r.id));
+  }
+
+  // The saved copy of a generator's repository, one per generator.
+  codeDir(id, sha) {
+    return path.join(this.appsDir, id, `source@${String(sha).slice(0, 12).replace(/[^a-z0-9]/gi, '_')}`);
+  }
+
+  getCode(id) {
+    return this.state.code[id] ?? null;
+  }
+
+  async setCode(id, record) {
+    if (record) this.state.code[id] = record;
+    else delete this.state.code[id];
+    await this.save();
   }
 
   async setInstalled(record) {

@@ -11,6 +11,7 @@ import { normalizeCatalog, resolveCatalog } from '../lib/catalog.js';
 import { search, facets } from '../lib/search.js';
 import { checkForUpdate, installDistribution, removeVersion as removeKeptVersion, uninstallDistribution } from '../lib/installer.js';
 import { createStableServer } from '../lib/server.js';
+import { removeCode as removeSavedCode, saveCode as saveRepoCode } from '../lib/source.js';
 import { currentPlatform, distributionKey, usableDistributions } from '../lib/manifest.js';
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
 import { createJobs } from '../lib/jobs.js';
@@ -189,6 +190,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       recent: library.state.recent,
       installed: library.state.installed,
       kept: library.state.kept,
+      code: library.state.code ?? {},
       running: [...servers.keys()],
       jobs: jobs.list(),
       runtimes: runtimes.status(),
@@ -272,6 +274,19 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     await stopServer(library.recordKey(id, distKey));
     await uninstallDistribution(record, { library });
     return true;
+  }
+
+  // A copy of the generator's repository beside its installs, to work on later.
+  async function saveCode({ id }) {
+    const manifest = manifestById(id);
+    return jobs.run({ title: `Saving the source of ${manifest.name}`, kind: 'code', target: { id, distKey: 'code' } }, (job) =>
+      saveRepoCode(manifest, { library, github, onProgress: (p) => (p.received !== undefined ? job.progress(p) : job.log(p.message)) }),
+    );
+  }
+
+  async function removeCode({ id }) {
+    await removeSavedCode(id, { library });
+    return state();
   }
 
   async function stopServer(key) {
@@ -580,6 +595,12 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     openFolder: ({ id, distKey }) => {
       const record = library.getInstalled(id, distKey);
       return record ? shell.openPath(record.dir) : Promise.resolve('not installed');
+    },
+    saveCode,
+    removeCode,
+    openCode: ({ id }) => {
+      const record = library.getCode(id);
+      return record ? shell.openPath(record.dir) : Promise.resolve('not saved');
     },
     webmirrorSnapshots: () => listWebMirrorSnapshots(webmirrorHome()),
     openSnapshot,

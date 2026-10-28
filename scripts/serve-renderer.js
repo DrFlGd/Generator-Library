@@ -25,6 +25,7 @@ const { manifests, problems } = await resolveCatalog(catalog, { readJson: async 
 
 const mock = {
   installed: {},
+  code: {}, // id -> saved repository copy
   kept: {}, // `${id}/${distKey}` -> older records
   favorites: [],
   tagEdits: {},
@@ -79,6 +80,7 @@ function state() {
     recent: mock.recent,
     installed: mock.installed,
     kept: mock.kept,
+    code: mock.code,
     running: [],
     jobs: mock.jobs,
     hidden: mock.hidden,
@@ -205,6 +207,18 @@ const handlers = {
   },
   openExternal: () => undefined,
   openFolder: () => '',
+  saveCode: ({ id }) => {
+    const m = all().find((x) => x.id === id);
+    const sha = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
+    mock.code[id] = { id, repo: m.repo, ref: 'main', sha, committedAt: new Date(Date.now() - 9 * 86400000).toISOString(), dir: `/mock/${id}/source@${sha.slice(0, 12)}`, files: 214, sizeBytes: 3456789, savedAt: new Date().toISOString() };
+    mockJob(`Saving the source of ${m.name}`, { id, distKey: 'code' });
+    return mock.code[id];
+  },
+  removeCode: ({ id }) => {
+    delete mock.code[id];
+    return state();
+  },
+  openCode: () => '',
   webmirrorSnapshots: () => [],
   openSnapshot: () => ({ url: '' }),
   chooseDataFolder: () => '',
