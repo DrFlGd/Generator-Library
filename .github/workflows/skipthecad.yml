@@ -1,0 +1,60 @@
+name: SkipTheCAD import
+
+# Once a week, read SkipTheCAD's sitemap again and open a pull request when
+# generators were added, changed or removed. The pull request carries the
+# summary; merging it updates catalog/catalog.json. Opening it needs the
+# repository setting "Allow GitHub Actions to create and approve pull requests".
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: skipthecad-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: skipthecad-import
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Import
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/import-skipthecad.mjs --summary "$RUNNER_TEMP/summary.md"
+      - name: Check the catalog and tests
+        run: |
+          node scripts/check-catalog.js > /dev/null
+          npm test
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- catalog/catalog.json; then
+            echo "No changes."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$BRANCH"
+          git add catalog/catalog.json
+          git commit -m "Update SkipTheCAD generators" -m "$(head -n 1 "$RUNNER_TEMP/summary.md")"
+          git push --force origin "$BRANCH"
+          if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh pr create --head "$BRANCH" --title "Update SkipTheCAD generators" --body-file "$RUNNER_TEMP/summary.md"
+          fi

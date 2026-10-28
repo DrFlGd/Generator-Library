@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('library', {
   useVersion: invoke('generator:useVersion'),
   removeVersion: invoke('generator:removeVersion'),
   toggleFavorite: invoke('library:toggleFavorite'),
+  setFavorite: invoke('library:setFavorite'),
+  setTags: invoke('library:setTags'),
   updateSettings: invoke('settings:update'),
   addSource: invoke('sources:add'),
   removeSource: invoke('sources:remove'),

@@ -36,6 +36,12 @@ A JSON Schema for editors lives at [`schema/generator.schema.json`](../schema/ge
 | `description` | | Longer text for the detail view; newlines are kept. |
 | `tags` | | Free-form, used for filters and search (`fidgets`, `boxes`, `keychains`…). |
 | `process` | | What the output is for: `3d-print`, `laser`, `cnc`, `tool`. Shown as its own filter. |
+| `category` | | One lowercase slug for the Category filter: `storage`, `mechanical`, `signs-text`, `ai-3d`, `cad`… |
+| `pricing` | | `free`, `freemium` (free with paid extras) or `paid`. Shown as the Price filter. |
+| `account` | | `true` when downloading needs a sign-up. |
+| `exports` | | File types it makes, lowercase: `["stl", "3mf"]`. Shown as the Exports filter. |
+| `openSource` | | Whether its source is published. Defaults to `true` when it has a `repo`. |
+| `listing` | | The directory page it was imported from (set by the SkipTheCAD importer). |
 | `icon`, `screenshots` | | Paths in the repository or `https://` URLs. Repository paths are loaded from the default branch. |
 | `homepage`, `license`, `author`, `version` | | Informational. |
 | `repo` | | `owner/name`; defaults to the repository the manifest was read from. |

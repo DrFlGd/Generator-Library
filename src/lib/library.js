@@ -42,8 +42,31 @@ export function rebasePaths(value, from, to) {
   return walk(value);
 }
 
+// A tag as typed becomes lowercase words joined by dashes: "Pegboard Hooks" → "pegboard-hooks".
+export function normalizeTag(tag) {
+  return String(tag ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}+#.]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
+export function normalizeTags(tags) {
+  return [...new Set((Array.isArray(tags) ? tags : []).map(normalizeTag).filter(Boolean))];
+}
+
+// The catalog's tags with your additions and removals applied.
+export function applyTagEdits(tags, edits) {
+  if (!edits) return tags;
+  const removed = new Set(edits.removed ?? []);
+  const kept = tags.filter((t) => !removed.has(normalizeTag(t)));
+  const have = new Set(kept.map(normalizeTag));
+  return [...kept, ...(edits.added ?? []).filter((t) => !have.has(t))];
+}
+
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {} };
 }
 
 export class Library {
@@ -180,6 +203,26 @@ export class Library {
     this.state.favorites = [...set];
     await this.save();
     return set.has(id);
+  }
+
+  async setFavorite(id, favorite) {
+    const rest = this.state.favorites.filter((x) => x !== id);
+    this.state.favorites = favorite ? [...rest, id] : rest;
+    await this.save();
+    return favorite;
+  }
+
+  // Your own tags for a generator are kept as what you added to and removed from
+  // the catalog's tags, so tags the catalog adds later still show up.
+  async setTags(id, tags, catalogTags = []) {
+    const wanted = normalizeTags(tags);
+    const base = normalizeTags(catalogTags);
+    const added = wanted.filter((t) => !base.includes(t));
+    const removed = base.filter((t) => !wanted.includes(t));
+    if (added.length || removed.length) this.state.tagEdits[id] = { added, removed };
+    else delete this.state.tagEdits[id];
+    await this.save();
+    return applyTagEdits(catalogTags, this.state.tagEdits[id]);
   }
 
   async updateSettings(patch) {

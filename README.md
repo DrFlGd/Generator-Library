@@ -15,7 +15,9 @@ One place to browse, search, install, launch and update model generators: web ap
 - **WebMirror built in**: generators with no downloadable build are captured for offline use with [WebMirror](https://github.com/DrFlGd/WebMirror). The library installs its own private Python and WebMirror the first time, so there is nothing to set up. WebMirror follows its main branch and is refreshed when it is a day old, and a mirrored site shows **Resync** once its copy is older than the days set in Settings (30 by default).
 - **Jobs panel**: every install, mirror and download shows its progress, log and any error.
 - **Manage projects**: add any GitHub repository or website link, hide what you do not use, and remove or restore projects, all from the app.
-- **Filter by how it runs**: online only, works offline, or already ready offline.
+- **Filter panel**: tick any mix of category, availability (online, works offline, ready offline), how it runs, price, sign-up, process, source (open source, MakerWorld, SkipTheCAD), export format and tags. Each number shows how many results that choice would give.
+- **Favorites and your own tags**: star a generator on its card or in its detail view, then pick **Show → Favorites**. Add or remove tags in the detail view; your changes stay on your computer and survive catalog updates, and **Undo my tag changes** goes back to the catalog's tags.
+- **The SkipTheCAD directory**: about 650 generators from [SkipTheCAD](https://skipthecad.com/) are listed by category. MakerWorld models open on MakerWorld; generators with a GitHub repository install from its releases or build from its source; free tools that need no account can be mirrored. [`scripts/import-skipthecad.mjs`](scripts/import-skipthecad.mjs) does the import, and a weekly workflow ([`skipthecad.yml`](.github/workflows/skipthecad.yml)) runs it again and opens a pull request when the directory changes.
 - **Your work stays put**: each app is served on the same local address every launch, so what it saves in the browser (settings, layouts) is there next time.
 
 ![A generator's detail view](docs/screenshot-detail.png)

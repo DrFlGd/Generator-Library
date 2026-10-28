@@ -31,6 +31,8 @@ The file must be on the default branch: the library reads it from there on every
 
 - `id`: lowercase letters, digits and dashes, at most 64 characters. It names install folders and saved favourites, so **never rename an existing id**.
 - `process`: one of `3d-print`, `laser`, `cnc`, `tool`.
+- `category` (optional): one slug for the Category filter. Reuse an existing one: `storage`, `boxes`, `mechanical`, `signs-text`, `keychains`, `lithophanes`, `image-relief`, `maps-terrain`, `vases-lamps`, `cookie-cutters`, `puzzles-games`, `codes`, `gifts`, `customizers`, `ai-3d`, `cad`.
+- `pricing`, `account`, `exports` (optional): `free`/`freemium`/`paid`, whether downloading needs a sign-up, and the file types it makes (`["stl", "3mf"]`). They feed the Price, Sign-up and Exports filters.
 - `tags`: a few lowercase words people would filter by. Reuse common ones (`boxes`, `organizer`, `keychains`, `signs`, `gridfinity`, `lithophane`, `fidgets`…).
 - `icon` and `screenshots`: paths in the repository or `https://` URLs.
 - `license`: an SPDX id taken from the repository's LICENSE file. Do not guess one.

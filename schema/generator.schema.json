@@ -47,7 +47,30 @@
       "description": "What the output is for: 3d-print, laser, cnc, tool…"
     },
     "category": {
-      "type": "string"
+      "type": "string",
+      "description": "One lowercase word or slug for the filter panel, e.g. storage, mechanical, signs-text, ai-3d, cad."
+    },
+    "pricing": {
+      "enum": ["free", "freemium", "paid"],
+      "description": "What using the generator costs: free, free with paid extras, or paid."
+    },
+    "account": {
+      "type": "boolean",
+      "description": "True when downloading a model needs a sign-up."
+    },
+    "exports": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "File types it makes, lowercase: stl, 3mf, step, svg…"
+    },
+    "openSource": {
+      "type": "boolean",
+      "description": "Whether its source is published. Defaults to true when it has a repo."
+    },
+    "listing": {
+      "type": "string",
+      "pattern": "^https://",
+      "description": "The directory page it was imported from, if any."
     },
     "icon": {
       "type": "string",

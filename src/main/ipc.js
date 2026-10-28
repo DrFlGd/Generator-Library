@@ -14,6 +14,8 @@ const CHANNELS = {
   'generator:useVersion': 'useVersion',
   'generator:removeVersion': 'removeVersion',
   'library:toggleFavorite': 'toggleFavorite',
+  'library:setFavorite': 'setFavorite',
+  'library:setTags': 'setTags',
   'settings:update': 'updateSettings',
   'sources:add': 'addSource',
   'sources:remove': 'removeSource',

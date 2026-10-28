@@ -117,3 +117,4 @@ npm run dist:win         # Windows installer + portable exe (on Windows or via A
 - Launching installed executables and the WebMirror hand-off were tested with fakes, not on a Windows machine.
 - Per-app offline bundles for Generator-Standalone depend on the release step proposed above; until then those apps offer `mirror`.
 - A "Mirror" distribution needs Python and WebMirror; the library downloads a private Python (about 30 MB) and installs WebMirror into it on first use. Browser capture uses the installed Chrome or Edge.
+- SkipTheCAD offline builds are chosen from what the repository shows (a web zip or desktop files in its newest release, a Vite or Create React App project, or plain HTML files). They were not each built and tried; one that fails to build shows the error in Jobs, and its online link still works.
