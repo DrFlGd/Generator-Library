@@ -27,11 +27,27 @@ export function stepCommand(step, node) {
 }
 
 // npm ci needs a lock file that matches package.json; some projects let theirs
-// drift, so a failed ci falls back to npm install.
+// drift, so a failed ci falls back to npm install. A pnpm workspace, or a project
+// whose package.json uses pnpm's own "catalog:" or "workspace:" versions, which
+// npm cannot read, is installed with the pnpm version it names, fetched by npx.
 export async function installSteps(dir, build) {
   const has = (file) => fs.access(path.join(dir, file)).then(() => true, () => false);
   if (!(await has('package.json'))) return [];
   const scripts = build.installScripts ? [] : ['--ignore-scripts'];
+  if ((await has('pnpm-lock.yaml')) && !(await has('package-lock.json'))) {
+    let pkg = {};
+    try {
+      pkg = JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf8'));
+    } catch {
+      /* npm reports a broken package.json itself */
+    }
+    const versions = Object.values({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies });
+    if ((await has('pnpm-workspace.yaml')) || versions.some((v) => /^(catalog|workspace):/.test(String(v)))) {
+      const version = /^pnpm@(\d[\w.-]*)/.exec(pkg.packageManager ?? '')?.[1] ?? '10';
+      const pnpm = ['npx', '-p', `pnpm@${version}`, 'pnpm', 'install', ...scripts];
+      return [{ step: [...pnpm, '--frozen-lockfile'], fallback: [...pnpm, '--no-frozen-lockfile'] }];
+    }
+  }
   const install = ['npm', 'install', ...scripts, ...INSTALL_FLAGS];
   if (await has('package-lock.json')) return [{ step: ['npm', 'ci', ...scripts, ...INSTALL_FLAGS], fallback: install }];
   return [{ step: install }];

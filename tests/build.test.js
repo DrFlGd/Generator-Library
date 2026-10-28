@@ -56,6 +56,20 @@ test('installSteps uses npm ci with a lock file and never runs install scripts b
   assert.ok(!scripts.step.includes('--ignore-scripts'));
 });
 
+test('installSteps installs a pnpm workspace or catalog project with its own pnpm', async () => {
+  const dir = await tmp();
+  await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ devDependencies: { vite: 'catalog:' }, packageManager: 'pnpm@10.33.0+sha512.abc' }));
+  await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), '');
+  const [pnpm] = await installSteps(dir, {});
+  assert.deepEqual(pnpm.step, ['npx', '-p', 'pnpm@10.33.0', 'pnpm', 'install', '--ignore-scripts', '--frozen-lockfile']);
+  assert.equal(pnpm.fallback.at(-1), '--no-frozen-lockfile');
+  // A plain pnpm project that npm can read stays with npm.
+  await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ devDependencies: { vite: '^6' } }));
+  assert.equal((await installSteps(dir, {}))[0].step[0], 'npm');
+  await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), 'packages: []');
+  assert.deepEqual((await installSteps(dir, {}))[0].step.slice(0, 3), ['npx', '-p', 'pnpm@10']);
+});
+
 test('buildProject installs, falls back from a stale lock file, builds and returns the output', async () => {
   const dir = await tmp();
   await fs.writeFile(path.join(dir, 'package.json'), '{}');

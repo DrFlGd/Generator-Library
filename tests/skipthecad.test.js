@@ -5,10 +5,12 @@ import {
   buildSources,
   exportsOf,
   isKnownUrl,
+  isPagesSite,
   knownGenerators,
   manifestFor,
   mergeCatalog,
   offlineFromRepo,
+  pageRefs,
   parseListing,
   pickRepo,
   pricingOf,
@@ -150,6 +152,38 @@ test('Vite and Create React App projects are built from source; desktop wrappers
 test('a plain static repository is served from its files', () => {
   assert.deepEqual(offlineFromRepo(facts({ staticSite: 'docs' }))[0].from, { type: 'repo', repo: 'alice/widgets', path: 'docs' });
   assert.deepEqual(offlineFromRepo(facts({ staticSite: null })), []);
+});
+
+test('pageRefs finds files a page needs that the repository lacks, and the sites it loads from', () => {
+  const html = `<link rel="icon" href="/fav.ico"><link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=1"></script>
+    <script type="importmap">{"imports":{"manifold":"https://cdn.jsdelivr.net/npm/manifold-3d@3/+esm"}}</script>
+    <script type="module">import { a } from './js/a.js'; import('/js/b.js');</script>`;
+  assert.deepEqual(pageRefs(html, ['web/index.html', 'web/style.css', 'web/js/a.js', 'web/js/b.js'], 'web'), { missing: [], hosts: ['cdn.jsdelivr.net'] });
+  assert.deepEqual(pageRefs(html, ['index.html', 'style.css', 'js/a.js']).missing, ['/js/b.js']);
+  assert.deepEqual(pageRefs('<script src="/resorte/_next/app.js"></script>', ['_next/app.js']).missing, ['/resorte/_next/app.js'], 'a base path the server will not have');
+  assert.deepEqual(pageRefs('<script src="https://tool.example/index.1.js"></script>', ['index.1.js']).missing, ['https://tool.example/index.1.js'], 'its own files from its own address');
+});
+
+test('a static site is served from the repository even with a package.json that builds nothing', () => {
+  const [bundle] = offlineFromRepo(facts({ pkg: { 'package.json': { scripts: { build: '' }, tools: [], workspaces: false } }, staticSite: '', staticRefs: { missing: [], hosts: ['unpkg.com'] } }));
+  assert.deepEqual(bundle.from, { type: 'repo', repo: 'alice/widgets' });
+  assert.match(bundle.notes, /unpkg\.com, so it still needs the internet/);
+  assert.deepEqual(offlineFromRepo(facts({ staticSite: '', staticRefs: { missing: ['app.js'], hosts: [] } })), [], 'a page whose script is not committed');
+  const [page] = offlineFromRepo(facts({ staticSite: '', staticRefs: { missing: [], hosts: [] }, staticPages: ['index.html', 'index_3d.html'] }), 'https://maps.example/index_3d.html?z=13');
+  assert.equal(page.entry, 'index_3d.html');
+});
+
+test("the gh-pages branch is used only when it is the generator's own site", () => {
+  assert.ok(isPagesSite('https://alice.github.io/widgets/', 'alice/widgets'));
+  assert.ok(isPagesSite('https://www.widgets.example/', 'alice/widgets', 'widgets.example'));
+  assert.ok(!isPagesSite('https://alice.github.io/other/', 'alice/widgets'));
+  assert.ok(!isPagesSite('https://widgets.example/', 'alice/widgets'), 'a project page for a tool hosted elsewhere');
+  const pagesBranch = { ref: 'gh-pages', cname: '', missing: [], hosts: [] };
+  assert.deepEqual(offlineFromRepo(facts({ pagesBranch }), 'https://alice.github.io/widgets/')[0].from, { type: 'repo', repo: 'alice/widgets', ref: 'gh-pages' });
+  assert.deepEqual(offlineFromRepo(facts({ pagesBranch }), 'https://widgets.example/'), []);
+  assert.deepEqual(offlineFromRepo(facts({ pagesBranch: { ...pagesBranch, missing: ['/widgets/_next/a.js'] } }), 'https://alice.github.io/widgets/'), []);
 });
 
 test('a static page that loads an uncommitted TypeScript output is compiled first', () => {
