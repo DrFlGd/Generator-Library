@@ -14,6 +14,7 @@ import {
   pricingOf,
   sitemapPages,
   summarize,
+  tscOutFile,
   withoutTracking,
 } from '../scripts/import-skipthecad.mjs';
 import { normalizeCatalog, resolveSource } from '../src/lib/catalog.js';
@@ -149,6 +150,17 @@ test('Vite and Create React App projects are built from source; desktop wrappers
 test('a plain static repository is served from its files', () => {
   assert.deepEqual(offlineFromRepo(facts({ staticSite: 'docs' }))[0].from, { type: 'repo', repo: 'alice/widgets', path: 'docs' });
   assert.deepEqual(offlineFromRepo(facts({ staticSite: null })), []);
+});
+
+test('a static page that loads an uncommitted TypeScript output is compiled first', () => {
+  const tsconfig = '{\n  // one script\n  "compilerOptions": { "outFile": "app.js", "target": "esnext", },\n}';
+  assert.equal(tscOutFile(tsconfig, ['index.html', 'app.ts', 'tsconfig.json']), 'app.js');
+  assert.equal(tscOutFile(tsconfig, ['index.html', 'app.ts', 'app.js']), '', 'already committed');
+  assert.equal(tscOutFile('{"compilerOptions": {"outDir": "out"}}', []), '');
+  assert.equal(tscOutFile('not json', []), '');
+  const [bundle] = offlineFromRepo(facts({ staticSite: '', tscOutFile: 'app.js' }));
+  assert.deepEqual(bundle.from, { type: 'repo', repo: 'alice/widgets' });
+  assert.deepEqual(bundle.build, { output: '.', steps: [['npx', '-p', 'typescript@5', 'tsc']] });
 });
 
 test('the importer replaces only its own sources, and the catalog loads them', async () => {

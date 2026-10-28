@@ -181,12 +181,29 @@ export function offlineFromRepo(facts) {
       out.push({ kind: 'bundle', label: 'Build offline copy', from: { type: 'repo', repo }, build, notes: "Built on your computer from the repository's source with the library's own Node.js." });
     } else if (!facts.pkg || !Object.keys(facts.pkg).length) {
       const site = facts.staticSite;
-      if (site !== undefined && site !== null) {
+      if (site !== undefined && site !== null && facts.tscOutFile) {
+        // Plain TypeScript compiled to one script that the page loads but the repository does not commit.
+        out.push({ kind: 'bundle', label: 'Build offline copy', from: { type: 'repo', repo }, build: { output: site || '.', steps: [TSC] }, notes: "Compiled on your computer from the repository's TypeScript with the library's own Node.js." });
+      } else if (site !== undefined && site !== null) {
         out.push({ kind: 'bundle', label: 'Install offline copy', from: site ? { type: 'repo', repo, path: site } : { type: 'repo', repo }, notes: 'The web page files from the repository, served on your computer. Anything the page loads from other sites still needs the internet.' });
       }
     }
   }
   return out;
+}
+
+const TSC = ['npx', '-p', 'typescript@5', 'tsc'];
+
+// The single output file a root tsconfig.json names, when the repository does not commit it.
+// tsconfig allows comments and trailing commas.
+export function tscOutFile(text, files) {
+  try {
+    const json = JSON.parse(text.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'));
+    const out = String(json?.compilerOptions?.outFile ?? '').replace(/^\.\//, '');
+    return out && !out.includes('..') && !files.includes(out) ? out : '';
+  } catch {
+    return '';
+  }
 }
 
 // A build the library can run with Node.js alone: a Vite or Create React App
@@ -432,6 +449,14 @@ export async function repoFacts(name, token) {
       /* unreadable package.json */
     }
   }
+  let tsc = '';
+  if (!files.includes('package.json') && files.includes('tsconfig.json')) {
+    try {
+      tsc = tscOutFile(await fetchText(`https://raw.githubusercontent.com/${full}/${meta.default_branch}/tsconfig.json`), files);
+    } catch {
+      /* unreadable tsconfig.json */
+    }
+  }
   const staticSite = STATIC_DIRS.find((dir) => files.includes(dir ? `${dir}/index.html` : 'index.html'));
   return {
     name,
@@ -442,6 +467,7 @@ export async function repoFacts(name, token) {
     releases,
     pkg,
     staticSite: staticSite === undefined ? null : staticSite,
+    tscOutFile: tsc,
   };
 }
 
