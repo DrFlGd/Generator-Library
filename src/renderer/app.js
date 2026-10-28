@@ -164,10 +164,17 @@ const AVAILABILITY = [
 function matchesAvailability(g, value) {
   if (!g) return false;
   if (value === 'online') return g.distributions.some((d) => d.kind === 'web');
-  const offline = g.distributions.filter((d) => d.kind !== 'web' && g.usable.includes(d.key));
+  // A mirror you marked as not working offline does not count.
+  const offline = g.distributions.filter((d) => d.kind !== 'web' && g.usable.includes(d.key) && !(d.kind === 'mirror' && offlineMark(g.id) === 'broken'));
   if (value === 'offline') return offline.length > 0;
   return offline.some((d) => state.data.installed[recordKey(g.id, d.key)]);
 }
+
+function offlineMark(id) {
+  return state.data?.offlineMarks?.[id] ?? '';
+}
+
+const MIRROR_CHECK_LABELS = { works: 'Works offline', broken: 'Needs the internet', unchecked: 'Not checked yet' };
 
 const titleCase = (v) => v.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
@@ -178,6 +185,7 @@ const FACETS = [
   { key: 'category', title: 'Category', values: (g) => (g.category ? [g.category] : []), label: (v) => CATEGORY_LABELS[v] ?? titleCase(v), alpha: true },
   { key: 'availability', title: 'Availability', values: (g) => AVAILABILITY.filter(([v]) => matchesAvailability(g, v)).map(([v]) => v), label: (v) => Object.fromEntries(AVAILABILITY)[v], order: AVAILABILITY.map(([v]) => v) },
   { key: 'kind', title: 'Runs as', values: (g) => [...new Set(g.distributions.map((d) => d.kind))], label: (v) => KIND_LABELS[v] ?? v, order: Object.keys(KIND_LABELS) },
+  { key: 'mirrorCheck', title: 'Mirror checked', values: (g) => (g.distributions.some((d) => d.kind === 'mirror') ? [offlineMark(g.id) || 'unchecked'] : []), label: (v) => MIRROR_CHECK_LABELS[v], order: Object.keys(MIRROR_CHECK_LABELS) },
   { key: 'pricing', title: 'Price', values: (g) => (g.pricing ? [g.pricing] : []), label: (v) => PRICING_LABELS[v] ?? v, order: Object.keys(PRICING_LABELS) },
   { key: 'signup', title: 'Sign-up', values: (g) => [g.account ? 'account' : 'no-account'], label: (v) => SIGNUP_LABELS[v], order: Object.keys(SIGNUP_LABELS) },
   { key: 'process', title: 'Process', values: (g) => (g.process ? [g.process] : []), label: (v) => PROCESS_LABELS[v] ?? v },
@@ -482,7 +490,11 @@ function renderCard(g) {
     el(
       'div',
       { class: 'card-foot' },
-      kinds.map((k) => el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k)),
+      kinds.map((k) => {
+        const mark = k === 'mirror' ? offlineMark(g.id) : '';
+        if (!mark) return el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k);
+        return el('span', { class: `badge badge-kind ${mark === 'works' ? 'is-works' : 'is-broken'}`, title: mark === 'works' ? 'You marked the mirror as working offline' : 'You marked the mirror as needing the internet' }, `Mirror ${mark === 'works' ? '✓' : '✗'}`);
+      }),
       installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
       update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
       needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
@@ -506,6 +518,18 @@ function renderCard(g) {
     ),
   );
   return card;
+}
+
+async function setOfflineMark(id, mark) {
+  try {
+    state.data = await call('setOfflineMark', { id, mark });
+  } catch (error) {
+    setStatus(error.message, 'error');
+    return;
+  }
+  renderFacets();
+  await runSearch();
+  if ($('detail').open) renderDetail();
 }
 
 async function setFavorite(id, favorite) {
@@ -595,6 +619,15 @@ function renderDistribution(g, d) {
     actions.push(el('button', { class: `btn btn-small ${open ? 'is-on' : ''}`, type: 'button', disabled: !usable, 'aria-expanded': String(open), onclick: () => toggleVersions(g, key) }, 'Versions'));
   }
 
+  // After trying a mirror, you say whether it worked without the internet.
+  const mark = offlineMark(g.id);
+  const markButton = (value, label) =>
+    el('button', { class: `chip ${mark === value ? 'is-active' : ''}`, type: 'button', 'aria-pressed': String(mark === value), onclick: () => setOfflineMark(g.id, mark === value ? '' : value) }, label);
+  const mirrorCheck =
+    d.kind === 'mirror'
+      ? el('div', { class: 'mirror-check' }, el('span', { class: 'dist-meta' }, record ? 'Does the offline copy work?' : 'Tried it already?'), markButton('works', '✓ Works offline'), markButton('broken', '✗ Needs the internet'))
+      : null;
+
   const node = el(
     'div',
     { class: `dist ${usable ? '' : 'is-unavailable'}` },
@@ -607,6 +640,7 @@ function renderDistribution(g, d) {
       job?.status === 'failed'
         ? el('div', { class: 'dist-error' }, job.error, ' ', el('button', { class: 'link', type: 'button', onclick: () => openJobs(job.id) }, 'Show log'))
         : null,
+      mirrorCheck,
     ),
     el('div', { class: 'dist-actions' }, actions),
   );

@@ -29,6 +29,7 @@ const mock = {
   favorites: [],
   tagEdits: {},
   collections: [],
+  offlineMarks: {},
   recent: [],
   sources: [],
   jobs: [],
@@ -71,6 +72,7 @@ function state() {
     sources: mock.sources,
     favorites: mock.favorites,
     collections: mock.collections,
+    offlineMarks: mock.offlineMarks,
     recent: mock.recent,
     installed: mock.installed,
     kept: mock.kept,
@@ -155,6 +157,11 @@ const handlers = {
   },
   setFavorite: ({ id, favorite }) => {
     mock.favorites = favorite ? [...mock.favorites.filter((x) => x !== id), id] : mock.favorites.filter((x) => x !== id);
+    return state();
+  },
+  setOfflineMark: ({ id, mark }) => {
+    if (mark) mock.offlineMarks[id] = mark;
+    else delete mock.offlineMarks[id];
     return state();
   },
   editCollection: (op) => {

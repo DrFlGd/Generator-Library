@@ -140,6 +140,11 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return state();
   }
 
+  async function setOfflineMark({ id, mark }) {
+    await library.setOfflineMark(id, mark ?? '');
+    return state();
+  }
+
   async function editCollection(op) {
     await library.editCollection(op);
     return state();
@@ -159,6 +164,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       sources: library.state.sources,
       favorites: library.state.favorites,
       collections: library.state.collections ?? [],
+      offlineMarks: library.state.offlineMarks ?? {},
       recent: library.state.recent,
       installed: library.state.installed,
       kept: library.state.kept,
@@ -543,6 +549,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     toggleFavorite: ({ id }) => library.toggleFavorite(id),
     setFavorite,
     editCollection,
+    setOfflineMark,
     setTags,
     updateSettings,
     addSource,

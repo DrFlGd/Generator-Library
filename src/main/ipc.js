@@ -16,6 +16,7 @@ const CHANNELS = {
   'library:toggleFavorite': 'toggleFavorite',
   'library:setFavorite': 'setFavorite',
   'library:editCollection': 'editCollection',
+  'library:setOfflineMark': 'setOfflineMark',
   'library:setTags': 'setTags',
   'settings:update': 'updateSettings',
   'sources:add': 'addSource',
