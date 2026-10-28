@@ -140,6 +140,11 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return state();
   }
 
+  async function editCollection(op) {
+    await library.editCollection(op);
+    return state();
+  }
+
   async function setFavorite({ id, favorite }) {
     await library.setFavorite(id, Boolean(favorite));
     return state();
@@ -153,6 +158,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       hasToken: Boolean(library.state.settings.githubToken),
       sources: library.state.sources,
       favorites: library.state.favorites,
+      collections: library.state.collections ?? [],
       recent: library.state.recent,
       installed: library.state.installed,
       kept: library.state.kept,
@@ -536,6 +542,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     checkUpdates,
     toggleFavorite: ({ id }) => library.toggleFavorite(id),
     setFavorite,
+    editCollection,
     setTags,
     updateSettings,
     addSource,

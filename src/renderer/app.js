@@ -39,6 +39,8 @@ const state = {
   openFacets: null, // facet keys whose section is expanded
   moreFacets: new Set(), // facet keys showing every value, not just the first few
   tagQuery: '',
+  collection: '', // the collection shown, or '' for all
+  editingCollection: null, // 'new', a collection id being renamed, or null
   found: null, // what Add project looked up, waiting to be added
   updates: new Map(), // `${id}/${distKey}` -> result
   jobs: [], // newest first, from main (jobs.js)
@@ -133,6 +135,9 @@ async function runSearch() {
   if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id) || needsResync(id));
   if (state.show === 'favorites') ids = ids.filter((id) => state.data.favorites.includes(id));
   if (state.show === 'recent') ids = state.data.recent.filter((id) => ids.includes(id));
+  const shown = collectionById(state.collection);
+  if (state.collection && !shown) state.collection = '';
+  if (shown) ids = ids.filter((id) => shown.ids.includes(id));
   const hidden = new Set(state.data.hidden ?? []);
   ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
   state.base = ids;
@@ -314,7 +319,123 @@ function renderFilters() {
   $('clear-filters').textContent = `Clear ${active} filter${active === 1 ? '' : 's'}`;
 }
 
+// ─────────────────────────────── collections ───────────────────────────────
+
+function collectionById(id) {
+  return id ? (state.data?.collections ?? []).find((c) => c.id === id) ?? null : null;
+}
+
+async function editCollection(op) {
+  try {
+    state.data = await call('editCollection', op);
+  } catch (error) {
+    setStatus(error.message, 'error');
+    return false;
+  }
+  renderFacets();
+  await runSearch();
+  if ($('detail').open) renderDetail();
+  return true;
+}
+
+// A name box for a new collection or a rename: Enter saves, Escape cancels.
+function nameInput(value, onSave, onCancel) {
+  // Saving re-renders, which removes the box and fires blur; act only once.
+  let done = false;
+  const finish = (fn, ...args) => {
+    if (done) return;
+    done = true;
+    fn(...args);
+  };
+  const input = el('input', {
+    class: 'collection-input',
+    type: 'text',
+    value,
+    maxlength: '60',
+    placeholder: 'Collection name',
+    onkeydown: (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.target.value.trim()) finish(onSave, e.target.value.trim());
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(onCancel);
+      }
+    },
+    onblur: (e) => (e.target.value.trim() && e.target.value.trim() !== value ? finish(onSave, e.target.value.trim()) : finish(onCancel)),
+  });
+  queueMicrotask(() => {
+    input.focus();
+    input.select();
+  });
+  return input;
+}
+
+function renderCollections() {
+  const list = state.data.collections ?? [];
+  const known = new Set(state.data.generators.map((g) => g.id));
+  const stopEditing = () => {
+    state.editingCollection = null;
+    renderCollections();
+  };
+  const rows = list.map((c) => {
+    if (state.editingCollection === c.id) {
+      return el('li', {}, nameInput(c.name, (name) => {
+        state.editingCollection = null;
+        editCollection({ type: 'rename', collection: c.id, name });
+      }, stopEditing));
+    }
+    const active = state.collection === c.id;
+    return el(
+      'li',
+      { class: `collection ${active ? 'is-active' : ''}` },
+      el(
+        'button',
+        {
+          class: 'collection-name',
+          type: 'button',
+          'aria-pressed': String(active),
+          onclick: () => {
+            state.collection = active ? '' : c.id;
+            renderCollections();
+            runSearch();
+          },
+        },
+        el('span', {}, c.name),
+        el('small', {}, c.ids.filter((id) => known.has(id)).length),
+      ),
+      el('button', { class: 'collection-action', type: 'button', title: 'Rename', 'aria-label': `Rename ${c.name}`, onclick: () => ((state.editingCollection = c.id), renderCollections()) }, '✎'),
+      el(
+        'button',
+        {
+          class: 'collection-action',
+          type: 'button',
+          title: 'Delete',
+          'aria-label': `Delete ${c.name}`,
+          onclick: () => {
+            if (!window.confirm(`Delete the collection "${c.name}"? The generators in it stay in the library.`)) return;
+            if (state.collection === c.id) state.collection = '';
+            editCollection({ type: 'delete', collection: c.id });
+          },
+        },
+        '×',
+      ),
+    );
+  });
+  if (state.editingCollection === 'new') {
+    rows.push(el('li', {}, nameInput('', (name) => {
+      state.editingCollection = null;
+      editCollection({ type: 'create', name });
+    }, stopEditing)));
+  } else if (!list.length) {
+    rows.push(el('li', { class: 'muted hint' }, 'Group generators your own way: make a collection, then add generators from their page.'));
+  }
+  $('collections').replaceChildren(...rows);
+}
+
 function renderFacets() {
+  renderCollections();
   for (const button of $('show-chips').querySelectorAll('.chip')) {
     button.classList.toggle('is-active', button.dataset.show === state.show);
     if (button.dataset.show === 'favorites') {
@@ -601,6 +722,7 @@ function renderDetail() {
       .map((text) => el('span', {}, text)),
   );
   renderTagEditor(g);
+  renderDetailCollections(g);
   $('detail-description').textContent = g.description || g.summary || '';
   $('detail-dists').replaceChildren(...g.distributions.map((d) => renderDistribution(g, d)));
   const source = $('detail-source');
@@ -648,7 +770,7 @@ function renderTagEditor(g) {
     input.value = '';
     saveTags(g, [...g.tags, ...typed]);
   };
-  $('detail-tags').replaceChildren(
+  $('detail-tags').replaceChildren(...[
     ...g.tags.map((t) =>
       el(
         'span',
@@ -672,7 +794,36 @@ function renderTagEditor(g) {
       onchange: (e) => add(e.target),
     }),
     el('datalist', { id: 'tag-suggestions' }, allTags.filter((t) => !g.tags.includes(t)).map((t) => el('option', { value: t }))),
+    // replaceChildren writes a null as the text "null", hence filter(Boolean).
     g.catalogTags ? el('button', { class: 'link muted', type: 'button', onclick: () => saveTags(g, null) }, 'Undo my tag changes') : null,
+  ].filter(Boolean));
+}
+
+// Which of your collections hold this generator; click one to add or take it out.
+function renderDetailCollections(g) {
+  const list = state.data.collections ?? [];
+  const box = $('detail-collections');
+  const adding = state.editingCollection === `new:${g.id}`;
+  box.replaceChildren(
+    el('span', { class: 'muted hint' }, 'Collections'),
+    ...list.map((c) => {
+      const member = c.ids.includes(g.id);
+      return el(
+        'button',
+        { class: `chip ${member ? 'is-active' : ''}`, type: 'button', 'aria-pressed': String(member), title: member ? `Take out of ${c.name}` : `Add to ${c.name}`, onclick: () => editCollection({ type: 'set', collection: c.id, id: g.id, member: !member }) },
+        member ? '✓ ' : '+ ',
+        c.name,
+      );
+    }),
+    adding
+      ? nameInput('', (name) => {
+          state.editingCollection = null;
+          editCollection({ type: 'create', name, ids: [g.id] });
+        }, () => {
+          state.editingCollection = null;
+          renderDetail();
+        })
+      : el('button', { class: 'link muted', type: 'button', onclick: () => ((state.editingCollection = `new:${g.id}`), renderDetail()) }, list.length ? 'New collection…' : 'Add to a new collection…'),
   );
 }
 
@@ -1067,6 +1218,10 @@ $('open-settings').addEventListener('click', () => {
   $('settings').showModal();
 });
 $('clear-filters').addEventListener('click', clearFilters);
+$('new-collection').addEventListener('click', () => {
+  state.editingCollection = 'new';
+  renderCollections();
+});
 $('show-problems').addEventListener('click', () => {
   $('problems-list').replaceChildren(
     ...state.data.problems.map((p) => el('li', {}, el('code', {}, p.repo, p.path ? `/${p.path}` : ''), ' — ', p.error)),

@@ -36,3 +36,20 @@ test('setFavorite adds and removes once', async () => {
   await library.setFavorite('a', false);
   assert.deepEqual(library.state.favorites, []);
 });
+
+test('editCollections creates, fills, renames and deletes your collections', async () => {
+  const { editCollections } = await import('../src/lib/library.js');
+  let list = editCollections([], { type: 'create', name: '  Workshop ', ids: ['a', 'a'] }, 1000);
+  assert.deepEqual(list, [{ id: 'crs', name: 'Workshop', ids: ['a'] }]);
+  list = editCollections(list, { type: 'create', name: 'Gifts' }, 1000);
+  assert.equal(list[1].id, 'crsx', 'ids stay unique');
+  list = editCollections(list, { type: 'set', collection: 'crs', id: 'b', member: true });
+  list = editCollections(list, { type: 'set', collection: 'crs', id: 'a', member: false });
+  assert.deepEqual(list[0].ids, ['b']);
+  list = editCollections(list, { type: 'rename', collection: 'crsx', name: 'Presents' });
+  assert.equal(list[1].name, 'Presents');
+  list = editCollections(list, { type: 'delete', collection: 'crs' });
+  assert.deepEqual(list.map((c) => c.name), ['Presents']);
+  assert.throws(() => editCollections(list, { type: 'create', name: ' ' }), /name/);
+  assert.throws(() => editCollections(list, { type: 'set', collection: 'gone', id: 'a', member: true }), /no longer exists/);
+});
