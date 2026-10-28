@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';
 import { facets, search } from '../src/lib/search.js';
-import { currentPlatform, distributionKey, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
+import { applyManifestEdit, currentPlatform, distributionKey, editPatch, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
 import { mimeFor } from '../src/lib/server.js';
 import { applyTagEdits, editCollections, normalizeTags } from '../src/lib/library.js';
 
@@ -28,6 +28,7 @@ const mock = {
   kept: {}, // `${id}/${distKey}` -> older records
   favorites: [],
   tagEdits: {},
+  edits: {},
   collections: [],
   offlineMarks: {},
   recent: [],
@@ -60,7 +61,9 @@ if (process.env.MOCK_UPDATES) {
 const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
 
 function all() {
-  return [...manifests, ...mock.added.map((a) => a.manifest)].map((m) => (mock.tagEdits[m.id] ? { ...m, tags: applyTagEdits(m.tags, mock.tagEdits[m.id]), catalogTags: m.tags } : m));
+  return [...manifests, ...mock.added.map((a) => a.manifest)]
+    .map((m) => (mock.edits[m.id] ? applyManifestEdit(m, mock.edits[m.id]).manifest : m))
+    .map((m) => (mock.tagEdits[m.id] ? { ...m, tags: applyTagEdits(m.tags, mock.tagEdits[m.id]), catalogTags: m.tags } : m));
 }
 
 function state() {
@@ -166,6 +169,18 @@ const handlers = {
   },
   editCollection: (op) => {
     mock.collections = editCollections(mock.collections, op);
+    return state();
+  },
+  setEdit: ({ id, edit }) => {
+    const original = [...manifests, ...mock.added.map((a) => a.manifest)].find((m) => m.id === id);
+    if (!edit) {
+      delete mock.edits[id];
+      return state();
+    }
+    const { patch, errors } = editPatch(original, edit);
+    if (errors.length) throw new Error(errors.join('; '));
+    if (patch) mock.edits[id] = patch;
+    else delete mock.edits[id];
     return state();
   },
   setTags: ({ id, tags }) => {

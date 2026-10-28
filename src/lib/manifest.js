@@ -303,6 +303,39 @@ export function normalizeManifest(raw, context = {}) {
   return { manifest, errors: [] };
 }
 
+// Your own changes to a generator, from its Edit dialog: a few of its fields and
+// its whole list of distributions, laid over what the catalog says. The result is
+// checked like any manifest; an edit that no longer fits leaves the original.
+export const EDITABLE_FIELDS = ['name', 'summary', 'description', 'homepage', 'repo', 'distributions'];
+
+export function applyManifestEdit(manifest, patch) {
+  const raw = { ...manifest };
+  for (const field of EDITABLE_FIELDS) if (patch?.[field] !== undefined) raw[field] = patch[field];
+  if (raw.repo === '') delete raw.repo;
+  const { manifest: edited, errors } = normalizeManifest(raw);
+  if (!edited) return { manifest, errors };
+  return { manifest: { ...manifest, ...edited, edited: true }, errors: [] };
+}
+
+// JSON with sorted keys, so the same value written in another order compares equal.
+function canonical(value) {
+  return JSON.stringify(value, (_, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
+}
+
+// The fields of an edit that differ from the catalog's manifest, so what the
+// catalog changes later in the other fields still comes through.
+export function editPatch(original, wanted) {
+  const { manifest: edited, errors } = applyManifestEdit(original, wanted);
+  if (errors.length) return { patch: null, errors };
+  const patch = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (canonical(edited[field]) !== canonical(original[field])) {
+      patch[field] = field === 'distributions' ? edited.distributions.map(({ key, ...d }) => d) : edited[field];
+    }
+  }
+  return { patch: Object.keys(patch).length ? patch : null, errors: [] };
+}
+
 // A collection (generator-library.json) describes a repo that holds several
 // generators, such as a monorepo with apps/*. Each entry is either an inline
 // manifest or { path } pointing at a generator.json inside the repo. Shared

@@ -17,7 +17,7 @@ import { createJobs } from '../lib/jobs.js';
 import { createRuntimes, WEBMIRROR_REQUIREMENT } from '../lib/runtimes.js';
 import { buildProject } from '../lib/build.js';
 import { checkMove, copyLibrary, PORTABLE_FOLDER, pointerPath, writePointer } from './location.js';
-import { mergeRequires, normalizeManifest } from '../lib/manifest.js';
+import { applyManifestEdit, editPatch, mergeRequires, normalizeManifest } from '../lib/manifest.js';
 import { describeProject as describeInput } from '../lib/describe.js';
 import { applyTagEdits, sourceKey } from '../lib/library.js';
 
@@ -26,7 +26,7 @@ const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
 
 export function createServices({ library, app, openGeneratorWindow, openExternal, shell, location = null, relaunch = () => {}, chooseFolder = async () => '' }) {
   let github = createGitHub({ token: library.state.settings.githubToken });
-  let manifests = []; // the catalog's generators with your own tags applied
+  let manifests = []; // the catalog's generators with your own edits and tags applied
   let resolvedManifests = []; // as the catalog describes them
   let problems = [];
   let catalogSource = 'bundled';
@@ -126,10 +126,31 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     return state();
   }
 
-  // `catalogTags` stays on an edited generator so the detail view can offer to undo the edit.
+  // Your edits first (an edit the catalog no longer fits is skipped, and kept),
+  // then your tags. `catalogTags` stays on a generator with tag edits so the detail
+  // view can offer to undo them; `edited` marks one with an Edit-dialog change.
   function applyUserTags() {
-    const edits = library.state.tagEdits ?? {};
-    manifests = resolvedManifests.map((m) => (edits[m.id] ? { ...m, tags: applyTagEdits(m.tags, edits[m.id]), catalogTags: m.tags } : m));
+    const edits = library.state.edits ?? {};
+    const tagEdits = library.state.tagEdits ?? {};
+    manifests = resolvedManifests.map((original) => {
+      const m = edits[original.id] ? applyManifestEdit(original, edits[original.id]).manifest : original;
+      return tagEdits[m.id] ? { ...m, tags: applyTagEdits(m.tags, tagEdits[m.id]), catalogTags: m.tags } : m;
+    });
+  }
+
+  // `edit` holds the Edit dialog's fields; null goes back to the catalog's version.
+  async function setEdit({ id, edit }) {
+    const original = resolvedManifests.find((m) => m.id === id);
+    if (!original) throw new Error(`Unknown generator "${id}"`);
+    if (!edit) {
+      await library.setEdit(id, null);
+    } else {
+      const { patch, errors } = editPatch(original, edit);
+      if (errors.length) throw new Error(errors.join('; '));
+      await library.setEdit(id, patch);
+    }
+    applyUserTags();
+    return state();
   }
 
   async function setTags({ id, tags }) {
@@ -550,6 +571,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     setFavorite,
     editCollection,
     setOfflineMark,
+    setEdit,
     setTags,
     updateSettings,
     addSource,
