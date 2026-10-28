@@ -132,9 +132,12 @@ export async function createStaticServer({ root, entry = 'index.html', spa = fal
   });
   const address = server.address();
   const base = `http://127.0.0.1:${address.port}`;
+  // Open a folder's index page at the folder's own URL, as its website does:
+  // some apps build paths from the page address and break on ".../index.html/".
+  const page = entry.replace(/^\/+/, '').replace(/(^|\/)index\.html?$/i, '$1');
   return {
     base,
-    url: `${base}/${entry.replace(/^\/+/, '')}`,
+    url: `${base}/${page}`,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }

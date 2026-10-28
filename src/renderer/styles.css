@@ -368,6 +368,11 @@ button {
   color: var(--warn);
 }
 
+.badge-resync {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 .badge-kind {
   background: var(--bg-elev);
   color: var(--text-muted);

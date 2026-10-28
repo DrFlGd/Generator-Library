@@ -59,6 +59,23 @@ function hasUpdate(id) {
   return [...state.updates.values()].some((u) => u.id === id && u.hasUpdate);
 }
 
+// A mirror is a copy of a site at one moment, and nothing says when the site
+// changed, so after Settings' "Remind me to mirror again" days it is flagged.
+function mirrorAgeDays(record) {
+  const saved = Date.parse(record?.installedAt ?? '');
+  return Number.isFinite(saved) ? Math.floor((Date.now() - saved) / 86400000) : null;
+}
+
+function resyncDue(record) {
+  const days = Number(state.data?.settings?.resyncDays ?? 30);
+  const age = record?.source?.type === 'mirror' ? mirrorAgeDays(record) : null;
+  return days > 0 && age !== null && age >= days;
+}
+
+function needsResync(id) {
+  return installedRecords(id).some(resyncDue);
+}
+
 // The newest job for one distribution, so its row can show progress or the error.
 function jobFor(id, distKey) {
   return state.jobs.find((j) => j.target?.id === id && j.target?.distKey === distKey) ?? null;
@@ -91,7 +108,7 @@ async function runSearch() {
   let ids = await call('search', { query: state.query, filters });
   const installedIds = new Set(Object.values(state.data.installed).map((r) => r.id));
   if (state.show === 'installed') ids = ids.filter((id) => installedIds.has(id));
-  if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id));
+  if (state.show === 'updates') ids = ids.filter((id) => hasUpdate(id) || needsResync(id));
   if (state.show === 'favorites') ids = ids.filter((id) => state.data.favorites.includes(id));
   if (state.show === 'recent') ids = state.data.recent.filter((id) => ids.includes(id));
   const hidden = new Set(state.data.hidden ?? []);
@@ -202,6 +219,7 @@ function renderCard(g) {
       kinds.map((k) => el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k)),
       installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
       update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
+      needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
       el(
         'button',
         {
@@ -249,7 +267,11 @@ function renderDistribution(g, d) {
   if (d.from?.type === 'release') metaParts.push(`GitHub release ${d.from.tag === 'latest' ? '(latest)' : d.from.tag} · ${d.from.asset}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
   if (d.from?.type === 'repo') metaParts.push(`Repository files${d.from.path ? ` under ${d.from.path}/` : ''}${d.from.ref ? ` at ${d.from.ref}` : ''}${d.from.repo ? ` from ${d.from.repo}` : ''}`);
   const kept = state.data.kept?.[rk] ?? [];
-  if (record) metaParts.push(`Installed ${record.version}${record.pinned ? ' (chosen version)' : ''}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}${kept.length ? ` · ${kept.length} other version${kept.length === 1 ? '' : 's'} kept` : ''}`);
+  if (record && record.source?.type !== 'mirror') metaParts.push(`Installed ${record.version}${record.pinned ? ' (chosen version)' : ''}${record.sizeBytes ? ` · ${(record.sizeBytes / 1048576).toFixed(1)} MB` : ''}${kept.length ? ` · ${kept.length} other version${kept.length === 1 ? '' : 's'} kept` : ''}`);
+  if (record?.source?.type === 'mirror') {
+    const age = mirrorAgeDays(record);
+    if (age !== null) metaParts.push(`Mirrored ${age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}${resyncDue(record) ? '; the site may have changed, mirror again to refresh it' : ''}`);
+  }
   if (update?.hasUpdate) metaParts.push(`Update available: ${update.latest.version}`);
   else if (update?.newer && update.pinned) metaParts.push(`Newest is ${update.latest.version}`);
   if (update?.error) metaParts.push(`Update check failed: ${update.error}`);
@@ -273,7 +295,7 @@ function renderDistribution(g, d) {
     );
   if (d.kind === 'web') actions.push(act(d.label || 'Open online', 'openWeb', { primary: true }));
   if (d.kind === 'mirror') {
-    if (record) actions.push(act('Open offline', 'launch', { primary: true }), act('Mirror again', 'mirror'), act('Remove', 'uninstall', { confirm: true }));
+    if (record) actions.push(act('Open offline', 'launch', { primary: true }), act('Mirror again', 'mirror', { primary: resyncDue(record) }), act('Remove', 'uninstall', { confirm: true }));
     else actions.push(act(d.label || 'Mirror for offline use', 'mirror', { primary: true }));
   }
   if (d.kind === 'bundle' || d.kind === 'exe') {
@@ -441,6 +463,7 @@ function renderSettings() {
   form.webmirrorHome.value = s.webmirrorHome;
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
   form.keepVersions.value = String(s.keepVersions ?? 2);
+  form.resyncDays.value = String(s.resyncDays ?? 30);
   renderRuntimes();
   renderDataLocation();
   call('webmirrorSnapshots')
@@ -584,6 +607,7 @@ $('settings-form').addEventListener('submit', async (event) => {
     webmirrorHome: form.webmirrorHome.value.trim(),
     checkUpdatesOnStart: form.checkUpdatesOnStart.checked,
     keepVersions: Math.max(0, Math.min(20, Math.round(Number(form.keepVersions.value) || 0))),
+    resyncDays: Math.max(0, Math.min(365, Math.round(Number(form.resyncDays.value) || 0))),
   };
   if (!patch.githubToken) delete patch.githubToken; // keep the saved one
   try {
@@ -786,7 +810,11 @@ async function checkUpdates() {
     const results = await call('checkUpdates', {});
     state.updates = new Map(results.map((r) => [recordKey(r.id, r.distKey), r]));
     const count = results.filter((r) => r.hasUpdate).length;
-    setStatus(count ? `${count} update${count === 1 ? '' : 's'} available` : results.length ? 'Everything is up to date' : 'Nothing installed yet', count ? 'good' : '');
+    const stale = Object.values(state.data.installed).filter(resyncDue).length;
+    const parts = [];
+    if (count) parts.push(`${count} update${count === 1 ? '' : 's'} available`);
+    if (stale) parts.push(`${stale} mirrored site${stale === 1 ? '' : 's'} may need mirroring again`);
+    setStatus(parts.length ? parts.join(' · ') : results.length || stale ? 'Everything is up to date' : 'Nothing installed yet', count || stale ? 'good' : '');
   } catch (error) {
     setStatus(`Update check failed: ${error.message}`, 'error');
   } finally {

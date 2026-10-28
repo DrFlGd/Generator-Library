@@ -28,6 +28,7 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. Each app gets a port derived from its id, so its origin, and with it the localStorage and IndexedDB it saved, is the same every launch. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
 | `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python with pip packages such as WebMirror, and a private Node.js for builds from source) into the data folder. |
+| `scripts/bundles/`, `.github/workflows/library-bundles.yml` | Daily CI builds of apps whose build needs git, a shell or pnpm, published as `<id>-<commit>` pre-releases that catalog entries install. |
 | `src/lib/build.js` | Builds a web app from its repository (npm install with scripts off, then the manifest's steps) with the private Node.js. |
 | `src/main/location.js` | Picks the data folder: beside a portable app, app-data for the installed one, or wherever Settings moved it; finishes moves before Chromium starts. |
 | `src/lib/jobs.js` | Tracks installs, mirrors and runtime downloads as jobs with progress, a log and an error, for the Jobs panel. |
@@ -64,7 +65,7 @@ Each version installs into its own folder (`apps/<id>/<distKey>@<version>`). An 
 | **Generator-Standalone** (Vostok Labs monorepo) | Ten Vite apps under `apps/*`, registry in `generators.json`, hub builds them all to GitHub Pages; private Tauri Windows build published as `v0.7.0` release. | A **collection**: one card per app (`web` + `mirror` each), six MakerWorld-only listings as `web`, and the Windows standalone as `exe` installer. |
 | **Marble-Run-Maker** (private) | Mirrored site in `Marbles/` + Electron wrapper; Windows build is only an Actions artifact; LFS for big 3MF files. | `bundle` from `Marbles/` (needs token) + `exe` once a release exists. |
 | **gridfinity-layout-tool** (fork of andymai) | React/Vite web app at gridfinitylayouttool.com; Tauri NSIS installer published as `desktop-v*` releases from the fork's workflow. | `web` + `exe` installer. Bin Designer (`/designer`) and Baseplate Generator (`/baseplate`) listed as their own cards. |
-| **easy-enclosure** (fork of bruceborrett) | Angular + JSCAD app on upstream GitHub Pages; no desktop build; built output not committed. | `web` + `mirror`. A release zip of `dist/` would add an offline `bundle`. |
+| **easy-enclosure** (bruceborrett upstream; the DrFlGd fork is no longer catalogued) | Angular + JSCAD app at easyenclosure.org; the old Pages address only redirects there. | `web` + a `bundle` built from the upstream source. |
 | **WebMirror** | Python/Tk app; executables are Actions artifacts. | Used as the mirroring engine; also listed so it can be installed once it has a release. |
 
 Common threads that shaped the convention:

@@ -63,10 +63,18 @@ export function findSum(sums, name) {
 
 // WebMirror's engine, with Playwright for capturing what a page loads at run
 // time. An archive URL rather than git+https so the user does not need git.
+// It follows WebMirror's main branch, so it is reinstalled when it is a day old
+// and needed again, picking up fixes without a library release.
 export const WEBMIRROR_REQUIREMENT = {
   runtime: 'python',
-  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror' }],
+  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror', refreshHours: 24 }],
 };
+
+// Whether an installed package spec is due to be installed again.
+export function packageIsStale(pkg, installedAt, now = Date.now()) {
+  if (!pkg.refreshHours || !installedAt) return false;
+  return now - Date.parse(installedAt) > pkg.refreshHours * 3600 * 1000;
+}
 
 const TRIPLES = {
   'win32-x64': 'x86_64-pc-windows-msvc',
@@ -254,17 +262,36 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
 
   async function installPackages(record, packages, { log = () => {}, progress = () => {} } = {}) {
     const missing = packages.filter((p) => !record.packages?.[p.spec]);
-    if (!missing.length) return record;
-    progress({ message: `Installing ${missing.map((p) => p.import || p.spec.split(/[\s@[]/)[0]).join(', ')}` });
-    await run(record.executable, ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--upgrade', ...missing.map((p) => p.spec)], {
-      spawnImpl,
-      env: { PIP_NO_WARN_SCRIPT_LOCATION: '1' },
-      onLine: (line) => {
-        if (/^(Collecting|Downloading|Installing|Successfully|Building|ERROR)/.test(line.trim())) log(line.trim());
-      },
-    });
+    const stale = packages.filter((p) => record.packages?.[p.spec] && packageIsStale(p, record.packages[p.spec]));
+    if (!missing.length && !stale.length) return record;
+    const name = (p) => p.import || p.spec.split(/[\s@[]/)[0];
+    const pip = (args) =>
+      run(record.executable, ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', ...args], {
+        spawnImpl,
+        env: { PIP_NO_WARN_SCRIPT_LOCATION: '1' },
+        onLine: (line) => {
+          if (/^(Collecting|Downloading|Installing|Successfully|Building|ERROR)/.test(line.trim())) log(line.trim());
+        },
+      });
     const next = { ...record, packages: { ...(record.packages ?? {}) } };
-    for (const p of missing) next.packages[p.spec] = new Date().toISOString();
+    if (missing.length) {
+      progress({ message: `Installing ${missing.map(name).join(', ')}` });
+      await pip(['--upgrade', ...missing.map((p) => p.spec)]);
+      for (const p of missing) next.packages[p.spec] = new Date().toISOString();
+    }
+    if (stale.length) {
+      progress({ message: `Updating ${stale.map(name).join(', ')}` });
+      try {
+        // The same version number can hold new code on a branch, so reinstall the
+        // package itself; then let pip add any dependency it now needs.
+        await pip(['--force-reinstall', '--no-deps', ...stale.map((p) => p.spec)]);
+        await pip(stale.map((p) => p.spec));
+        for (const p of stale) next.packages[p.spec] = new Date().toISOString();
+      } catch (error) {
+        // Offline, or the source is down: the installed copy still works.
+        log(`Could not update ${stale.map(name).join(', ')}; using the installed copy (${error.message.slice(0, 160)})`);
+      }
+    }
     await saveManaged(next);
     return next;
   }

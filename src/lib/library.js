@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   webmirrorHome: '',
   checkUpdatesOnStart: true,
   keepVersions: 2, // older versions kept per app after an update, to switch back to
+  resyncDays: 30, // suggest mirroring a site again once its copy is this old; 0 = never
 };
 
 export function sourceKey(source) {
