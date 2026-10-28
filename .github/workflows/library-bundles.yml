@@ -1,8 +1,8 @@
 name: Library bundles
 
 # Offline builds of apps whose build needs more than Node.js (git, zip, pnpm,
-# a whole site of apps), so the library cannot build them on the user's
-# computer. Each new upstream commit becomes a pre-release here, tagged
+# a whole site of apps, packages to download in place of a CDN), so the library
+# cannot build them on the user's computer. Each new upstream commit becomes a pre-release here, tagged
 # `<id>-<commit>` with one `<id>-web-<commit>.zip`, which the catalog installs.
 # Pre-releases never show as this repository's latest release, and only the
 # newest few per app are kept.
@@ -48,5 +48,16 @@ jobs:
       id: vostok-labs-original
       name: Vostok Labs (original site)
       upstream: vostoklabs/vostoklabs.github.io
+      node: '22'
+      force: ${{ inputs.force == true }}
+
+  bumpmesh:
+    uses: ./.github/workflows/library-bundle.yml
+    permissions:
+      contents: write
+    with:
+      id: bumpmesh
+      name: BumpMesh
+      upstream: CNCKitchen/stlTexturizer
       node: '22'
       force: ${{ inputs.force == true }}

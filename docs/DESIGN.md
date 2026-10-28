@@ -29,7 +29,7 @@ A desktop app (Electron) that puts every model generator in one searchable place
 | `src/lib/server.js` | Loopback static server for installed bundles and WebMirror snapshots. Honours WebMirror's route map and SPA fallback. Each app gets a port derived from its id, so its origin, and with it the localStorage and IndexedDB it saved, is the same every launch. |
 | `src/lib/mirror.js` | Drives WebMirror's `MirrorEngine` headlessly and lists its existing snapshots. |
 | `src/lib/runtimes.js` | Installs runtimes a manifest `requires` (a private python-build-standalone Python with pip packages such as WebMirror, and a private Node.js for builds from source) into the data folder. |
-| `scripts/bundles/`, `.github/workflows/library-bundles.yml` | Daily CI builds of apps whose build needs git, a shell or pnpm, published as `<id>-<commit>` pre-releases that catalog entries install. |
+| `scripts/bundles/`, `.github/workflows/library-bundles.yml` | Daily CI builds of apps whose build needs git, a shell or pnpm, or whose libraries come from a CDN (`vendor-cdn.mjs`), published as `<id>-<commit>` pre-releases that catalog entries install. |
 | `src/lib/build.js` | Builds a web app from its repository (npm install with scripts off, then the manifest's steps) with the private Node.js. |
 | `src/main/location.js` | Picks the data folder: beside a portable app, app-data for the installed one, or wherever Settings moved it; finishes moves before Chromium starts. |
 | `src/lib/jobs.js` | Tracks installs, mirrors and runtime downloads as jobs with progress, a log and an error, for the Jobs panel. |
