@@ -64,16 +64,21 @@ export function findSum(sums, name) {
 // WebMirror's engine, with Playwright for capturing what a page loads at run
 // time. An archive URL rather than git+https so the user does not need git.
 // It follows WebMirror's main branch, so it is reinstalled when it is a day old
-// and needed again, picking up fixes without a library release.
+// and needed again, picking up fixes without a library release. `refreshAfter`
+// is when the newest fix the library relies on landed: a copy installed before
+// it is replaced at once, whatever its age.
 export const WEBMIRROR_REQUIREMENT = {
   runtime: 'python',
-  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror', refreshHours: 24 }],
+  packages: [{ spec: 'webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip', import: 'webmirror', refreshHours: 24, refreshAfter: '2026-10-28T02:43:00Z' }],
 };
 
 // Whether an installed package spec is due to be installed again.
 export function packageIsStale(pkg, installedAt, now = Date.now()) {
-  if (!pkg.refreshHours || !installedAt) return false;
-  return now - Date.parse(installedAt) > pkg.refreshHours * 3600 * 1000;
+  if (!installedAt) return false;
+  const installed = Date.parse(installedAt);
+  const after = Date.parse(pkg.refreshAfter ?? '');
+  if (installed < after && now >= after) return true;
+  return Boolean(pkg.refreshHours) && now - installed > pkg.refreshHours * 3600 * 1000;
 }
 
 const TRIPLES = {

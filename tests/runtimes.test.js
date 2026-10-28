@@ -93,6 +93,9 @@ test('a package that follows a branch is due again after its refresh time', () =
   assert.equal(packageIsStale({ spec: 'x', refreshHours: 24 }, '2026-10-27T11:00:00Z', now), true);
   assert.equal(packageIsStale({ spec: 'x', refreshHours: 24 }, '2026-10-28T01:00:00Z', now), false);
   assert.equal(packageIsStale({ spec: 'x' }, '2020-01-01T00:00:00Z', now), false);
+  // A copy from before a fix the library needs is replaced even when it is new.
+  assert.equal(packageIsStale({ spec: 'x', refreshHours: 24, refreshAfter: '2026-10-28T11:00:00Z' }, '2026-10-28T10:00:00Z', now), true);
+  assert.equal(packageIsStale({ spec: 'x', refreshHours: 24, refreshAfter: '2026-10-28T11:00:00Z' }, '2026-10-28T11:30:00Z', now), false);
 });
 
 test('the managed Python is downloaded, checksummed, unpacked and given its packages once', async () => {
