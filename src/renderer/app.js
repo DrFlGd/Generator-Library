@@ -41,6 +41,12 @@ const state = {
   tagQuery: '',
   collection: '', // the collection shown, or '' for all
   editingCollection: null, // 'new', a collection id being renamed, or null
+  checkedAt: null, // when the last update check finished
+  checking: false,
+  updateScope: 'all',
+  updatePicks: new Map(), // record key -> ticked, for rows the user changed
+  bulk: null, // { total, done, current, failed: [], stop } while updating many
+  lastBulk: '', // what the last bulk update did
   found: null, // what Add project looked up, waiting to be added
   updates: new Map(), // `${id}/${distKey}` -> result
   jobs: [], // newest first, from main (jobs.js)
@@ -1181,24 +1187,191 @@ async function refresh() {
 async function checkUpdates() {
   const button = $('check-updates');
   button.disabled = true;
-  setStatus('Checking GitHub for updates…');
+  state.checking = true;
+  if ($('updates').open) renderUpdates();
+  setStatus('Checking for updates…');
   try {
     const results = await call('checkUpdates', {});
     state.updates = new Map(results.map((r) => [recordKey(r.id, r.distKey), r]));
+    state.checkedAt = new Date();
     const count = results.filter((r) => r.hasUpdate).length;
     const stale = Object.values(state.data.installed).filter(resyncDue).length;
     const parts = [];
     if (count) parts.push(`${count} update${count === 1 ? '' : 's'} available`);
     if (stale) parts.push(`${stale} mirrored site${stale === 1 ? '' : 's'} may need mirroring again`);
-    setStatus(parts.length ? parts.join(' · ') : results.length || stale ? 'Everything is up to date' : 'Nothing installed yet', count || stale ? 'good' : '');
+    setStatus(parts.length ? `${parts.join(' · ')} · open Updates to update them` : results.length || stale ? 'Everything is up to date' : 'Nothing installed yet', count || stale ? 'good' : '');
   } catch (error) {
     setStatus(`Update check failed: ${error.message}`, 'error');
   } finally {
     button.disabled = false;
+    state.checking = false;
   }
   await runSearch();
   if ($('detail').open) renderDetail();
+  if ($('updates').open) renderUpdates();
 }
+
+// ───────────────────────────── bulk updates ─────────────────────────────
+
+// Where an install came from, for the scope chips.
+const ORIGINS = { release: 'github', repo: 'github', page: 'website', mirror: 'mirror' };
+const ORIGIN_LABELS = { release: 'GitHub release', repo: 'GitHub source', page: 'Website download', mirror: 'Mirror' };
+const UPDATE_SCOPES = [
+  ['all', 'All'],
+  ['view', 'Shown now'],
+  ['favorites', 'Favorites'],
+  ['github', 'GitHub only'],
+  ['website', 'Website downloads'],
+  ['mirror', 'Mirrors'],
+];
+
+// Every install that can be brought up to date: a newer build found by the
+// last check, or a mirror (ticked when it is due a resync).
+function updateRows() {
+  const rows = [];
+  for (const record of Object.values(state.data.installed)) {
+    const g = generatorById(record.id);
+    if (!g) continue;
+    const type = record.source?.type ?? '';
+    const key = recordKey(record.id, record.distKey);
+    if (type === 'mirror') {
+      const age = mirrorAgeDays(record);
+      rows.push({ key, g, record, type, action: 'mirror', due: resyncDue(record), note: age === null ? 'Mirrored' : `Mirrored ${age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}` });
+      continue;
+    }
+    const u = state.updates.get(key);
+    if (u?.hasUpdate) rows.push({ key, g, record, type, action: 'install', due: true, note: `${record.version} → ${u.latest.version}` });
+  }
+  return rows.sort((a, b) => a.g.name.localeCompare(b.g.name));
+}
+
+function inScope(row, scope) {
+  if (scope === 'all') return true;
+  if (scope === 'view') return state.results.includes(row.g.id);
+  if (scope === 'favorites') return state.data.favorites.includes(row.g.id);
+  return ORIGINS[row.type] === scope;
+}
+
+function isPicked(row) {
+  return state.updatePicks.has(row.key) ? state.updatePicks.get(row.key) : row.due;
+}
+
+function renderUpdates() {
+  const rows = updateRows();
+  const scoped = rows.filter((r) => inScope(r, state.updateScope));
+  const picked = scoped.filter(isPicked);
+  const bulk = state.bulk;
+  const installs = Object.values(state.data.installed).filter((r) => r.source?.type !== 'mirror').length;
+  const pinned = [...state.updates.values()].filter((u) => u.newer && u.pinned).length;
+  const failedChecks = [...state.updates.values()].filter((u) => u.error).length;
+  $('updates-summary').textContent = state.checking
+    ? 'Checking every install for a newer build…'
+    : state.checkedAt
+      ? [`Checked ${installs} install${installs === 1 ? '' : 's'} at ${state.checkedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, pinned ? `${pinned} held at a chosen version` : '', failedChecks ? `${failedChecks} could not be checked` : ''].filter(Boolean).join(' · ')
+      : 'Not checked yet.';
+  $('updates-check').disabled = state.checking || Boolean(bulk);
+  $('updates-scopes').replaceChildren(
+    ...UPDATE_SCOPES.map(([value, label]) => {
+      const count = rows.filter((r) => inScope(r, value) && isPicked(r)).length;
+      return el('button', { class: `chip ${state.updateScope === value ? 'is-active' : ''}`, type: 'button', disabled: Boolean(bulk), onclick: () => ((state.updateScope = value), renderUpdates()) }, label, el('small', {}, count));
+    }),
+  );
+  const list = $('updates-list');
+  if (!scoped.length) {
+    list.replaceChildren(el('li', { class: 'muted' }, state.checking ? 'Checking…' : rows.length ? 'Nothing to update in this group.' : state.checkedAt ? 'Everything installed is up to date.' : 'Check for updates first.'));
+  } else {
+    list.replaceChildren(
+      el(
+        'li',
+        { class: 'updates-all' },
+        el('label', {}, el('input', {
+          type: 'checkbox',
+          checked: picked.length === scoped.length,
+          disabled: Boolean(bulk),
+          onchange: (e) => {
+            for (const r of scoped) state.updatePicks.set(r.key, e.target.checked);
+            renderUpdates();
+          },
+        }), ` Select all ${scoped.length}`),
+      ),
+      ...scoped.map((r) => {
+        const running = bulk?.current === r.key;
+        const failed = bulk?.failed.find((f) => f.key === r.key);
+        return el(
+          'li',
+          { class: `update-row ${running ? 'is-running' : ''}` },
+          el('label', {},
+            el('input', { type: 'checkbox', checked: isPicked(r), disabled: Boolean(bulk), onchange: (e) => (state.updatePicks.set(r.key, e.target.checked), renderUpdates()) }),
+            el('span', { class: 'update-name' }, r.g.name),
+            el('span', { class: 'badge badge-kind' }, ORIGIN_LABELS[r.type] ?? r.type),
+            el('span', { class: 'muted update-note' }, running ? 'Updating…' : r.note),
+          ),
+          failed ? el('div', { class: 'dist-error' }, failed.error) : null,
+        );
+      }),
+    );
+  }
+  $('updates-run').textContent = bulk ? `Updating ${bulk.done + 1} of ${bulk.total}…` : picked.length ? `Update ${picked.length}` : 'Update';
+  $('updates-run').disabled = Boolean(bulk) || picked.length === 0;
+  $('updates-stop').hidden = !bulk;
+  $('updates-stop').disabled = Boolean(bulk?.stop);
+  $('updates-progress').textContent = bulk
+    ? bulk.stop ? 'Stopping after this one…' : 'Each update also shows in Jobs.'
+    : state.lastBulk ?? '';
+}
+
+// One at a time: installs share the download folder and the private Node.js
+// and Python, and a build can take a while.
+async function runBulkUpdate() {
+  const rows = updateRows().filter((r) => inScope(r, state.updateScope) && isPicked(r));
+  if (!rows.length) return;
+  state.bulk = { total: rows.length, done: 0, current: null, failed: [], stop: false };
+  state.lastBulk = '';
+  for (const row of rows) {
+    if (state.bulk.stop) break;
+    state.bulk.current = row.key;
+    state.busy.add(row.key);
+    renderUpdates();
+    try {
+      await call(row.action, { id: row.record.id, distKey: row.record.distKey });
+      state.updates.delete(row.key);
+      state.updatePicks.delete(row.key);
+    } catch (error) {
+      state.bulk.failed.push({ key: row.key, name: row.g.name, error: error.message });
+    }
+    state.busy.delete(row.key);
+    state.bulk.done += 1;
+    state.data = await call('getState');
+  }
+  const { done, total, failed } = state.bulk;
+  const updated = done - failed.length;
+  state.lastBulk = [`Updated ${updated} of ${total}`, failed.length ? `${failed.length} failed: ${failed.map((f) => f.name).join(', ')}` : '', done < total ? `${total - done} left as they were` : ''].filter(Boolean).join(' · ');
+  const failures = state.bulk.failed;
+  state.bulk = null;
+  await reloadState({ keepSearch: true });
+  renderUpdates();
+  // Keep the errors on screen next to their rows until the next run.
+  for (const f of failures) {
+    const row = [...$('updates-list').children].find((li) => li.textContent.includes(f.name));
+    if (row && !row.querySelector('.dist-error')) row.append(el('div', { class: 'dist-error' }, f.error));
+  }
+  setStatus(state.lastBulk, failures.length ? 'error' : 'good');
+}
+
+function openUpdates() {
+  renderUpdates();
+  const dialog = $('updates');
+  if (!dialog.open) dialog.showModal();
+  if (!state.checking && !state.bulk && (!state.checkedAt || Date.now() - state.checkedAt > 10 * 60 * 1000)) checkUpdates();
+}
+
+$('updates-check').addEventListener('click', checkUpdates);
+$('updates-run').addEventListener('click', runBulkUpdate);
+$('updates-stop').addEventListener('click', () => {
+  if (state.bulk) state.bulk.stop = true;
+  renderUpdates();
+});
+// An update in progress keeps going with the panel closed; Escape only hides it.
 
 $('search').addEventListener('input', (event) => {
   state.query = event.target.value;
@@ -1212,7 +1385,7 @@ $('show-chips').addEventListener('click', (event) => {
   runSearch();
 });
 $('refresh').addEventListener('click', refresh);
-$('check-updates').addEventListener('click', checkUpdates);
+$('check-updates').addEventListener('click', openUpdates);
 $('open-settings').addEventListener('click', () => {
   renderSettings();
   $('settings').showModal();

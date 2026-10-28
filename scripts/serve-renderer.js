@@ -46,6 +46,16 @@ if (process.env.MOCK_OLD_MIRROR) {
   mock.installed[`${m.id}/${distKey}`] = { id: m.id, name: m.name, distKey, kind: 'bundle', version: '2026-09-13T10:00:00+00:00', source: { type: 'mirror', url: 'https://example.com/' }, dir: `/mock/mirrors/${m.id}`, entry: 'index.html', installedAt: new Date(Date.now() - 45 * 86400000).toISOString(), sizeBytes: 0 };
 }
 
+// MOCK_UPDATES=1 starts with a few older installs, to show the Updates panel.
+if (process.env.MOCK_UPDATES) {
+  const picks = manifests.filter((x) => x.distributions.some((d) => d.kind === 'bundle' || d.kind === 'exe')).slice(0, 5);
+  picks.forEach((m, i) => {
+    const d = m.distributions.find((x) => x.kind === 'bundle' || x.kind === 'exe');
+    const type = ['release', 'repo', 'page'][i % 3];
+    mock.installed[`${m.id}/${d.key}`] = { id: m.id, name: m.name, distKey: d.key, kind: d.kind, version: 'v1.0.0', source: { type }, dir: `/mock/${m.id}`, installedAt: new Date().toISOString(), sizeBytes: 1000 };
+  });
+}
+
 const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
 
 function all() {
