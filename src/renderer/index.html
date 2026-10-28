@@ -77,6 +77,7 @@
       </div>
       <div class="row row-tight">
         <button id="detail-fav" class="btn fav-btn" type="button"></button>
+        <button id="detail-edit" class="btn" type="button">Edit</button>
         <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
       </div>
     </form>
@@ -91,6 +92,37 @@
       <p id="detail-source" class="muted"></p>
       <button id="detail-hide" class="btn btn-small" type="button"></button>
     </div>
+  </dialog>
+
+  <dialog id="edit" class="dialog edit">
+    <form method="dialog" class="dialog-head">
+      <div>
+        <h2 id="edit-title">Edit</h2>
+        <p class="muted">Your changes stay on this computer, and are kept when the catalog updates.</p>
+      </div>
+      <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
+    </form>
+    <form id="edit-form" class="settings-form edit-form">
+      <div id="edit-fields" class="edit-fields"></div>
+      <h3>Links</h3>
+      <p class="muted hint">Where it runs online: its own site, MakerWorld, a listing.</p>
+      <div id="edit-links" class="edit-rows"></div>
+      <div class="row row-tight"><button id="edit-add-link" class="btn btn-small" type="button">+ Add a link</button></div>
+      <h3>Offline</h3>
+      <label class="check"><input id="edit-mirror" type="checkbox" /> <span>Offer a web mirror of the site</span></label>
+      <div id="edit-mirror-row" class="edit-rows"></div>
+      <p class="muted hint">Other ways to install it: files or a build from its GitHub repository, a release download, a desktop app. Each is written as in a generator.json (<button id="edit-manifest-help" class="link" type="button">how they work</button>).</p>
+      <div id="edit-offline" class="edit-rows"></div>
+      <div id="edit-add-offline" class="row row-tight wrap"></div>
+      <p id="edit-error" class="dist-error" hidden></p>
+      <div class="edit-foot">
+        <button id="edit-reset" class="btn btn-small" type="button">Go back to the catalog's version</button>
+        <div class="row row-tight">
+          <button id="edit-cancel" class="btn" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="settings" class="dialog">

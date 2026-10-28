@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('library', {
   setFavorite: invoke('library:setFavorite'),
   editCollection: invoke('library:editCollection'),
   setOfflineMark: invoke('library:setOfflineMark'),
+  setEdit: invoke('library:setEdit'),
   setTags: invoke('library:setTags'),
   updateSettings: invoke('settings:update'),
   addSource: invoke('sources:add'),

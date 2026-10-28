@@ -775,7 +775,9 @@ function renderDetail() {
     g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
     g.listing ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.listing }) }, /skipthecad\.com/.test(g.listing) ? 'SkipTheCAD listing' : 'listing')) : null,
     g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : g.listing ? null : el('span', { class: 'muted' }, g.repo ? ' · described by the catalog (no generator.json in the repo yet)' : ' · added by link'),
+    g.edited ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => openEdit(g.id) }, 'edited by you')) : null,
   ));
+  $('detail-edit').onclick = () => openEdit(g.id);
   const hidden = (state.data.hidden ?? []).includes(g.id);
   $('detail-hide').textContent = hidden ? 'Show in library' : 'Hide from library';
   $('detail-hide').onclick = async () => {
@@ -866,6 +868,187 @@ function renderDetailCollections(g) {
       : el('button', { class: 'link muted', type: 'button', onclick: () => ((state.editingCollection = `new:${g.id}`), renderDetail()) }, list.length ? 'New collection…' : 'Add to a new collection…'),
   );
 }
+
+// ────────────────────────────────── edit ──────────────────────────────────
+
+// The Edit dialog changes a generator's name, links, GitHub repository and ways
+// to install it, for when the catalog has them wrong or a site changes what it
+// allows. Main keeps only what differs from the catalog, so later catalog
+// changes to the other fields still arrive.
+const OFFLINE_TEMPLATES = [
+  ['GitHub repository files', (repo) => ({ kind: 'bundle', from: { type: 'repo', repo, path: '' } })],
+  ['Build from GitHub source', (repo) => ({ kind: 'bundle', from: { type: 'repo', repo }, build: { output: 'dist', steps: [['npm', 'run', 'build']] } })],
+  ['GitHub release download', (repo) => ({ kind: 'bundle', from: { type: 'release', repo, asset: '*web*.zip' } })],
+  ['Desktop app', (repo) => ({ kind: 'exe', platform: state.data.platform, install: 'installer', from: { type: 'release', repo, asset: '*.exe' } })],
+];
+
+function parseRepo(text) {
+  const m = /^(?:https?:\/\/(?:www\.)?github\.com\/)?([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?(?:[#?].*)?$/i.exec(text.trim());
+  return m ? `${m[1]}/${m[2]}` : text.trim();
+}
+
+function offlineTitle(d) {
+  if (d.kind === 'exe') return `Desktop app (${d.platform ?? 'any'})`;
+  if (d.kind === 'mirror') return 'Web mirror';
+  if (d.build) return 'Build from source';
+  if (d.from?.type === 'release') return 'Release download';
+  if (d.from?.type === 'page') return 'Download page';
+  if (d.from?.type === 'repo') return 'Repository files';
+  return d.kind;
+}
+
+function openEdit(id) {
+  const g = generatorById(id);
+  if (!g) return;
+  const strip = ({ key, ...d }) => d;
+  const dists = g.distributions.map(strip);
+  const mirrors = dists.filter((d) => d.kind === 'mirror');
+  state.edit = {
+    id,
+    repo: g.repo,
+    fields: { name: g.name, summary: g.summary, homepage: g.homepage, repo: g.repo },
+    links: dists.filter((d) => d.kind === 'web'),
+    mirror: mirrors[0] ?? null,
+    // A mirror switched off keeps its address, in case it is switched back on.
+    mirrorUrl: mirrors[0]?.url ?? g.homepage ?? dists.find((d) => d.kind === 'web')?.url ?? '',
+    offline: [...mirrors.slice(1), ...dists.filter((d) => d.kind !== 'web' && d.kind !== 'mirror')].map((d) => JSON.stringify(d, null, 2)),
+  };
+  $('edit-title').textContent = `Edit ${g.name}`;
+  $('edit-error').hidden = true;
+  $('edit-reset').hidden = !g.edited;
+  renderEdit();
+  const dialog = $('edit');
+  if (!dialog.open) dialog.showModal();
+}
+
+function editInput(label, value, onInput, attrs = {}) {
+  return el('label', {}, el('span', {}, label), el('input', { type: 'text', value: value ?? '', oninput: (e) => onInput(e.target.value), ...attrs }));
+}
+
+function renderEdit() {
+  const e = state.edit;
+  $('edit-fields').replaceChildren(
+    editInput('Name', e.fields.name, (v) => (e.fields.name = v)),
+    editInput('Summary', e.fields.summary, (v) => (e.fields.summary = v)),
+    editInput('Website', e.fields.homepage, (v) => (e.fields.homepage = v), { placeholder: 'https://…' }),
+    el('label', {},
+      el('span', {}, 'GitHub repository'),
+      el('input', { type: 'text', value: e.fields.repo, placeholder: 'owner/name or a github.com link', oninput: (ev) => (e.fields.repo = ev.target.value) }),
+      e.repo ? el('small', {}, 'Downloads below that use the current repository follow a new one.') : null,
+    ),
+  );
+  $('edit-links').replaceChildren(
+    ...e.links.map((link, i) =>
+      el('div', { class: 'edit-row' },
+        el('input', { type: 'text', class: 'edit-label', value: link.label ?? '', placeholder: 'Label', 'aria-label': 'Link label', oninput: (ev) => (link.label = ev.target.value) }),
+        el('input', { type: 'url', value: link.url ?? '', placeholder: 'https://…', 'aria-label': 'Link address', oninput: (ev) => (link.url = ev.target.value) }),
+        el('button', { class: 'btn btn-quiet', type: 'button', 'aria-label': 'Remove link', onclick: () => (e.links.splice(i, 1), renderEdit()) }, '✕'),
+      ),
+    ),
+  );
+  $('edit-mirror').checked = Boolean(e.mirror);
+  $('edit-mirror-row').replaceChildren(
+    ...(e.mirror
+      ? [
+          el('div', { class: 'edit-row' },
+            el('input', { type: 'url', value: e.mirror.url ?? '', placeholder: 'https://… the page to mirror', 'aria-label': 'Page to mirror', oninput: (ev) => (e.mirror.url = ev.target.value) }),
+          ),
+          el('label', { class: 'check' },
+            el('input', { type: 'checkbox', checked: e.mirror.githubPagesFiles === true, onchange: (ev) => (e.mirror.githubPagesFiles = ev.target.checked) }),
+            el('span', {}, 'Also fetch every file the GitHub Pages site publishes'),
+          ),
+        ]
+      : []),
+  );
+  $('edit-offline').replaceChildren(
+    ...e.offline.map((text, i) => {
+      let title = 'Install';
+      try {
+        title = offlineTitle(JSON.parse(text));
+      } catch {
+        /* shown as is until saved */
+      }
+      return el('div', { class: 'edit-offline' },
+        el('div', { class: 'edit-offline-head' }, el('strong', {}, title), el('button', { class: 'btn btn-quiet', type: 'button', 'aria-label': `Remove ${title}`, onclick: () => (e.offline.splice(i, 1), renderEdit()) }, '✕')),
+        el('textarea', { rows: String(Math.min(14, text.split('\n').length)), spellcheck: 'false', 'aria-label': `${title} as JSON`, oninput: (ev) => (e.offline[i] = ev.target.value) }, text),
+      );
+    }),
+  );
+  $('edit-add-offline').replaceChildren(
+    ...OFFLINE_TEMPLATES.map(([label, make]) =>
+      el('button', { class: 'btn btn-small', type: 'button', onclick: () => (e.offline.push(JSON.stringify(make(parseRepo(e.fields.repo) || e.repo || 'owner/name'), null, 2)), renderEdit()) }, `+ ${label}`),
+    ),
+  );
+}
+
+// The dialog's fields as the manifest fields main checks and keeps.
+function collectEdit() {
+  const e = state.edit;
+  const repo = parseRepo(e.fields.repo ?? '');
+  const offline = e.offline.map((text, i) => {
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Install ${i + 1} is not valid JSON: ${error.message}`);
+    }
+  });
+  // Downloads from the old repository follow a changed one.
+  if (repo !== e.repo) for (const d of offline) if (d.from && (d.from.repo ?? e.repo) === e.repo && d.from.type !== 'page') d.from.repo = repo || undefined;
+  const links = e.links.filter((l) => (l.url ?? '').trim()).map((l) => ({ ...l, url: l.url.trim(), label: (l.label ?? '').trim() || undefined }));
+  return {
+    name: e.fields.name.trim(),
+    summary: e.fields.summary.trim(),
+    homepage: e.fields.homepage.trim(),
+    repo,
+    distributions: [...links, ...offline, ...(e.mirror ? [{ ...e.mirror, kind: 'mirror', url: (e.mirror.url ?? '').trim() }] : [])],
+  };
+}
+
+async function saveEdit(edit) {
+  const id = state.edit.id;
+  try {
+    state.data = await call('setEdit', { id, edit });
+  } catch (error) {
+    $('edit-error').textContent = error.message;
+    $('edit-error').hidden = false;
+    return;
+  }
+  $('edit').close();
+  setStatus(edit ? 'Saved your changes.' : "Back to the catalog's version.");
+  renderFacets();
+  await runSearch();
+  if ($('detail').open) renderDetail();
+}
+
+$('edit-mirror').addEventListener('change', (ev) => {
+  const e = state.edit;
+  if (ev.target.checked) e.mirror = { kind: 'mirror', url: e.mirrorUrl, githubPagesFiles: /\.github\.io$/.test((() => { try { return new URL(e.mirrorUrl).hostname; } catch { return ''; } })()) };
+  else {
+    e.mirrorUrl = e.mirror?.url ?? e.mirrorUrl;
+    e.mirror = null;
+  }
+  renderEdit();
+});
+$('edit-add-link').addEventListener('click', () => {
+  state.edit.links.push({ kind: 'web', label: '', url: '' });
+  renderEdit();
+  $('edit-links').querySelector('.edit-row:last-child input[type=url]')?.focus();
+});
+$('edit-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  let edit;
+  try {
+    edit = collectEdit();
+  } catch (error) {
+    $('edit-error').textContent = error.message;
+    $('edit-error').hidden = false;
+    return;
+  }
+  saveEdit(edit);
+});
+$('edit-cancel').addEventListener('click', () => $('edit').close());
+$('edit-reset').addEventListener('click', () => saveEdit(null));
+$('edit-manifest-help').addEventListener('click', () => call('openExternal', { url: 'https://github.com/DrFlGd/Generator-Library/blob/main/docs/MANIFEST.md#distributions' }));
 
 // ──────────────────────────────── settings ────────────────────────────────
 

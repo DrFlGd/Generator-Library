@@ -99,7 +99,7 @@ export function editCollections(collections, op, now = Date.now()) {
 }
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {}, edits: {} };
 }
 
 export class Library {
@@ -256,6 +256,15 @@ export class Library {
     else delete this.state.tagEdits[id];
     await this.save();
     return applyTagEdits(catalogTags, this.state.tagEdits[id]);
+  }
+
+  // Your own version of a generator's links, repository and distributions (the
+  // fields of the Edit dialog that differ from the catalog); null removes it.
+  async setEdit(id, patch) {
+    if (patch && Object.keys(patch).length) this.state.edits[id] = patch;
+    else delete this.state.edits[id];
+    await this.save();
+    return this.state.edits[id] ?? null;
   }
 
   // Whether a generator's mirror turned out to work without the internet:
