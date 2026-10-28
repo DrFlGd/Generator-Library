@@ -8,6 +8,8 @@
 export const DISTRIBUTION_KINDS = ['web', 'bundle', 'exe', 'mirror'];
 export const PLATFORMS = ['windows', 'macos', 'linux'];
 export const INSTALL_KINDS = ['portable', 'installer', 'zip'];
+// What using a generator costs: free, free with paid extras, or paid.
+export const PRICINGS = ['free', 'freemium', 'paid'];
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -277,7 +279,7 @@ export function normalizeManifest(raw, context = {}) {
     description: str(raw.description),
     tags: strList(raw.tags),
     process: str(raw.process),
-    category: str(raw.category),
+    category: str(raw.category).toLowerCase(),
     icon: str(raw.icon),
     screenshots: strList(raw.screenshots),
     homepage: str(raw.homepage),
@@ -287,6 +289,13 @@ export function normalizeManifest(raw, context = {}) {
     upstream: isValidRepo(raw.upstream) ? raw.upstream : '',
     requires: normalizeRequires(raw.requires, errors),
     distributions,
+    // For filtering a large catalog: what it costs, whether downloading needs a
+    // sign-up, the file types it makes, and whether its source is published.
+    pricing: PRICINGS.includes(str(raw.pricing)) ? str(raw.pricing) : '',
+    account: raw.account === true,
+    exports: strList(raw.exports).map((e) => e.toLowerCase()),
+    openSource: typeof raw.openSource === 'boolean' ? raw.openSource : Boolean(repo),
+    listing: /^https:\/\//.test(str(raw.listing)) ? str(raw.listing) : '',
   };
   if (errors.length) return { manifest: null, errors };
   if (context.collection) manifest.collection = context.collection;
@@ -305,10 +314,13 @@ export function normalizeCollection(raw, context = {}) {
   }
   const id = str(raw.id);
   if (!isValidId(id)) errors.push('collection "id" must be lowercase letters, digits and dashes');
-  const repo = isValidRepo(raw.repo) ? raw.repo : context.repo;
-  if (!repo) errors.push('collection "repo" is required when not read from a repository');
+  const repo = isValidRepo(raw.repo) ? raw.repo : context.repo ?? '';
   if (!Array.isArray(raw.generators) || raw.generators.length === 0) {
     errors.push('collection "generators" must be a non-empty array');
+  } else if (!repo && raw.generators.some((entry) => typeof entry?.path === 'string')) {
+    // A website's list of other people's generators has no repository of its
+    // own; each inline entry names its own `repo` when it has one.
+    errors.push('collection "repo" is required when entries are paths in a repository');
   }
   if (errors.length) return { collection: null, errors };
 
