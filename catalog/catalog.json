@@ -581,7 +581,7 @@
       }
     },
     {
-      "repo": "DrFlGd/easy-enclosure",
+      "repo": "bruceborrett/easy-enclosure",
       "fallback": {
         "id": "easy-enclosure",
         "name": "Easy Enclosure",
@@ -595,20 +595,45 @@
         ],
         "process": "3d-print",
         "license": "MIT",
-        "upstream": "bruceborrett/easy-enclosure",
-        "homepage": "https://bruceborrett.github.io/easy-enclosure/",
-        "icon": "public/screenshot.png",
+        "homepage": "https://easyenclosure.org/",
+        "icon": "public/easy-enclosure-logo.svg",
         "distributions": [
           {
             "kind": "web",
-            "url": "https://bruceborrett.github.io/easy-enclosure/",
+            "url": "https://easyenclosure.org/",
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://bruceborrett.github.io/easy-enclosure/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo"
+            },
+            "build": {
+              "output": "dist/angular-app/browser",
+              "steps": [
+                [
+                  "node",
+                  "scripts/sync-version.js"
+                ],
+                [
+                  "npx",
+                  "ng",
+                  "build",
+                  "--base-href",
+                  "./"
+                ]
+              ],
+              "env": {
+                "NG_CLI_ANALYTICS": "false"
+              }
+            },
+            "spa": true,
+            "notes": "Built on your computer from Bruce Borrett's repository with the library's own Node.js, so it follows the latest upstream changes."
           }
+        ],
+        "screenshots": [
+          "public/screenshot.png"
         ]
       }
     },
@@ -974,9 +999,16 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://ochafik.com/openscad2",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "release",
+              "repo": "DrFlGd/Generator-Library",
+              "tag": "openscad-playground-*",
+              "asset": "openscad-playground-web-*.zip",
+              "prerelease": true
+            },
+            "notes": "Built from the repository every day by this library's own workflow, with OpenSCAD's WebAssembly engine, fonts and the bundled OpenSCAD libraries (BOSL2, NopSCADlib and others), so it runs fully offline."
           }
         ]
       }
@@ -1006,9 +1038,59 @@
             "label": "Open online"
           },
           {
-            "kind": "mirror",
-            "url": "https://openjscad.xyz/",
-            "label": "Mirror for offline use"
+            "kind": "bundle",
+            "label": "Build offline copy",
+            "from": {
+              "type": "repo",
+              "path": "packages/web"
+            },
+            "build": {
+              "output": "site",
+              "steps": [
+                [
+                  "node",
+                  "-e",
+                  "const fs = require('fs'); for (const dir of ['css', 'dist', 'fonts', 'imgs', 'locales']) fs.cpSync(dir, 'site/' + dir, { recursive: true }); fs.cpSync('node_modules/@jscad/examples', 'site/examples', { recursive: true }); fs.copyFileSync('demo.html', 'site/index.html');"
+                ]
+              ]
+            },
+            "notes": "Assembled on your computer from the repository's released web build and the JSCAD examples, with the library's own Node.js."
+          }
+        ]
+      }
+    },
+    {
+      "repo": "vostoklabs/vostoklabs.github.io",
+      "fallback": {
+        "id": "vostok-labs-original",
+        "name": "Vostok Labs (original site)",
+        "summary": "The original Vostok Labs site: free 3D print generators and seller tools, the upstream of the Vostok Labs generators listed above.",
+        "tags": [
+          "vostok-labs",
+          "hub",
+          "keychains",
+          "fidgets"
+        ],
+        "process": "3d-print",
+        "homepage": "https://vostoklabs.github.io/",
+        "icon": "apps/hub/public/favicon.png",
+        "distributions": [
+          {
+            "kind": "web",
+            "url": "https://vostoklabs.github.io/",
+            "label": "Open online"
+          },
+          {
+            "kind": "bundle",
+            "label": "Install offline copy",
+            "from": {
+              "type": "release",
+              "repo": "DrFlGd/Generator-Library",
+              "tag": "vostok-labs-original-*",
+              "asset": "vostok-labs-original-web-*.zip",
+              "prerelease": true
+            },
+            "notes": "The whole site, built from the repository every day by this library's own workflow the same way the site deploys itself."
           }
         ]
       }

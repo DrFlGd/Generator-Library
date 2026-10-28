@@ -33,8 +33,15 @@ const mock = {
   hidden: [],
   removed: [],
   added: [], // { key, manifest }
-  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2 },
+  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2, resyncDays: 30 },
 };
+
+// MOCK_OLD_MIRROR=1 starts with a 45-day-old mirror, to show the Resync reminder.
+if (process.env.MOCK_OLD_MIRROR) {
+  const m = manifests.find((x) => x.distributions.some((d) => d.kind === 'mirror'));
+  const distKey = m.distributions.find((d) => d.kind === 'mirror').key;
+  mock.installed[`${m.id}/${distKey}`] = { id: m.id, name: m.name, distKey, kind: 'bundle', version: '2026-09-13T10:00:00+00:00', source: { type: 'mirror', url: 'https://example.com/' }, dir: `/mock/mirrors/${m.id}`, entry: 'index.html', installedAt: new Date(Date.now() - 45 * 86400000).toISOString(), sizeBytes: 0 };
+}
 
 const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
 
@@ -124,7 +131,7 @@ const handlers = {
   // MOCK_MIRROR_FAIL=1 shows how a failed job looks on its distribution row.
   mirror: ({ id, distKey }) =>
     process.env.MOCK_MIRROR_FAIL ? mockJob(`Mirroring ${manifests.find((x) => x.id === id).name}`, { id, distKey }, { failed: 'Browser capture needs Chrome or Edge.' }) : handlers.install({ id, distKey }),
-  checkUpdates: () => Object.values(mock.installed).map((r) => {
+  checkUpdates: () => Object.values(mock.installed).filter((r) => r.source.type !== 'mirror').map((r) => {
     const newer = r.version !== MOCK_RELEASES[0].tag;
     return { id: r.id, distKey: r.distKey, hasUpdate: newer && !r.pinned, pinned: Boolean(r.pinned), newer, latest: { version: MOCK_RELEASES[0].tag, publishedAt: '', notes: '', htmlUrl: '' } };
   }),

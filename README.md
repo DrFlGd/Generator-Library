@@ -7,11 +7,11 @@ One place to browse, search, install, launch and update model generators: web ap
 - **Browse and search** every generator by name, tag, process (3D print, laser…) and how it runs.
 - **Open online**, **install an offline copy** served locally, or **install the desktop app**, from the same card.
 - **Update from GitHub**: each install remembers its release tag or commit and can be checked and updated in one click.
-- **Built from source**: web apps with no download (PrintKit, STLmill, Text to STL…) are built on your computer from their GitHub repository with the library's own private Node.js, so everything they load is there offline.
+- **Built from source**: web apps with no download (PrintKit, STLmill, Text to STL…) are built on your computer from their GitHub repository with the library's own private Node.js, so everything they load is there offline. Apps whose build needs more than Node.js (OpenSCAD Playground, the original Vostok Labs site) are built every day by [`library-bundles.yml`](.github/workflows/library-bundles.yml) and installed from its pre-releases.
 - **Portable**: the portable builds keep the whole library (apps, saved data, Python, Node.js) in a folder beside the app, so it can live on a USB drive. **Settings → Library folder** moves it anywhere.
 - **Keep several versions**: updates keep the previous versions, and **Versions** lets you install any release and choose which one launches.
 - **Split up multi-generator apps**: a monorepo lists each generator on its own card.
-- **WebMirror built in**: generators with no downloadable build are captured for offline use with [WebMirror](https://github.com/DrFlGd/WebMirror). The library installs its own private Python and WebMirror the first time, so there is nothing to set up.
+- **WebMirror built in**: generators with no downloadable build are captured for offline use with [WebMirror](https://github.com/DrFlGd/WebMirror). The library installs its own private Python and WebMirror the first time, so there is nothing to set up. WebMirror follows its main branch and is refreshed when it is a day old, and a mirrored site shows **Resync** once its copy is older than the days set in Settings (30 by default).
 - **Jobs panel**: every install, mirror and download shows its progress, log and any error.
 - **Manage projects**: add any GitHub repository or website link, hide what you do not use, and remove or restore projects, all from the app.
 - **Filter by how it runs**: online only, works offline, or already ready offline.

@@ -6,7 +6,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createRuntimes, findPythonAsset, pythonExecutable, pythonTriple, PYTHON_BUILD, WEBMIRROR_REQUIREMENT } from '../src/lib/runtimes.js';
+import { createRuntimes, findPythonAsset, packageIsStale, pythonExecutable, pythonTriple, PYTHON_BUILD, WEBMIRROR_REQUIREMENT } from '../src/lib/runtimes.js';
 import { mergeRequires, normalizeManifest, normalizeRequires } from '../src/lib/manifest.js';
 import { createJobs } from '../src/lib/jobs.js';
 import { extractTarGz } from '../src/lib/archive.js';
@@ -88,6 +88,13 @@ test('a Python set in Settings is used when it can import, and never modified', 
   await assert.rejects(failing.ensure([WEBMIRROR_REQUIREMENT]), /cannot import webmirror/);
 });
 
+test('a package that follows a branch is due again after its refresh time', () => {
+  const now = Date.parse('2026-10-28T12:00:00Z');
+  assert.equal(packageIsStale({ spec: 'x', refreshHours: 24 }, '2026-10-27T11:00:00Z', now), true);
+  assert.equal(packageIsStale({ spec: 'x', refreshHours: 24 }, '2026-10-28T01:00:00Z', now), false);
+  assert.equal(packageIsStale({ spec: 'x' }, '2020-01-01T00:00:00Z', now), false);
+});
+
 test('the managed Python is downloaded, checksummed, unpacked and given its packages once', async () => {
   const dir = await tmp();
   const library = new Library(path.join(dir, 'data'));
@@ -134,6 +141,23 @@ test('the managed Python is downloaded, checksummed, unpacked and given its pack
   assert.equal(downloads.length, 1, 'not downloaded again');
   assert.equal(spawned.length, 0, 'packages not reinstalled');
   assert.deepEqual(runtimes.status().python.managed.packages, [WEBMIRROR_REQUIREMENT.packages[0].spec]);
+
+  // A day later WebMirror, which follows its main branch, is reinstalled when needed.
+  const spec = WEBMIRROR_REQUIREMENT.packages[0].spec;
+  library.state.runtimes.python.packages[spec] = new Date(Date.now() - 2 * 86400000).toISOString();
+  const full = [];
+  const refreshing = createRuntimes({ library, fetchImpl, download, spawnImpl: (cmd, args) => (full.push(args), fakeChild({ code: 0 })) });
+  await refreshing.ensure([WEBMIRROR_REQUIREMENT]);
+  assert.ok(full.some((args) => args.includes('--force-reinstall') && args.includes('--no-deps') && args.includes(spec)));
+  assert.ok(Date.now() - Date.parse(library.state.runtimes.python.packages[spec]) < 60000, 'refresh time recorded');
+
+  // Offline: the update fails, the installed copy is kept and used.
+  library.state.runtimes.python.packages[spec] = new Date(Date.now() - 2 * 86400000).toISOString();
+  const offlineLog = [];
+  const offline = createRuntimes({ library, fetchImpl, download, spawnImpl: () => fakeChild({ code: 1 }) });
+  const kept = await offline.ensure([WEBMIRROR_REQUIREMENT], { log: (l) => offlineLog.push(l), progress: () => {} });
+  assert.equal(kept.python, python);
+  assert.ok(offlineLog.some((l) => /Could not update webmirror; using the installed copy/.test(l)));
 
   await runtimes.remove();
   assert.equal(runtimes.status().python.managed, null);

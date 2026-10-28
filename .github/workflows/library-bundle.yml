@@ -1,0 +1,133 @@
+name: Library bundle
+
+# One app of library-bundles.yml. The upstream build runs in a job that can only
+# read this repository and keeps no credentials in its checkouts; publishing is
+# a separate job that runs none of the upstream code.
+on:
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: true
+      name:
+        type: string
+        required: true
+      upstream:
+        type: string
+        required: true
+      node:
+        type: string
+        default: '22'
+      force:
+        type: boolean
+        default: false
+
+env:
+  KEEP_RELEASES: 2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.pick.outputs.skip }}
+      sha: ${{ steps.pick.outputs.sha }}
+      short: ${{ steps.pick.outputs.short }}
+    steps:
+      - name: Pick the upstream commit
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          UPSTREAM: ${{ inputs.upstream }}
+          ID: ${{ inputs.id }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          SHA=$(git ls-remote "https://github.com/$UPSTREAM" HEAD | cut -f1)
+          [ -n "$SHA" ] || { echo "Could not read $UPSTREAM"; exit 1; }
+          SHORT=${SHA:0:12}
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE" != "true" ] && [ "${{ github.event_name }}" != "pull_request" ] \
+            && gh release view "$ID-$SHORT" > /dev/null 2>&1; then
+            echo "$ID-$SHORT already published"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          persist-credentials: false
+          path: library
+
+      - uses: actions/checkout@v5
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          repository: ${{ inputs.upstream }}
+          ref: ${{ steps.pick.outputs.sha }}
+          persist-credentials: false
+          path: upstream
+
+      - uses: actions/setup-node@v5
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          node-version: ${{ inputs.node }}
+
+      - name: Build
+        if: steps.pick.outputs.skip != 'true'
+        working-directory: upstream
+        env:
+          OUT: ${{ github.workspace }}/site
+        run: bash "$GITHUB_WORKSPACE/library/scripts/bundles/${{ inputs.id }}.sh"
+
+      - name: Zip
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          test -f site/index.html || { echo "The build made no index.html"; exit 1; }
+          NAME="${{ inputs.id }}-web-${{ steps.pick.outputs.short }}.zip"
+          (cd site && zip -qr "$GITHUB_WORKSPACE/$NAME" .)
+          ls -lh "$NAME"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          name: ${{ inputs.id }}
+          path: ${{ inputs.id }}-web-${{ steps.pick.outputs.short }}.zip
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: needs.build.outputs.skip != 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.id }}
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ID: ${{ inputs.id }}
+          NAME: ${{ inputs.name }}
+          UPSTREAM: ${{ inputs.upstream }}
+          SHA: ${{ needs.build.outputs.sha }}
+          SHORT: ${{ needs.build.outputs.short }}
+        run: |
+          NOTES="Offline web build of $NAME from [$UPSTREAM@$SHORT](https://github.com/$UPSTREAM/tree/$SHA) for Generator Library, made by \`scripts/bundles/$ID.sh\`."
+          gh release delete "$ID-$SHORT" --yes --cleanup-tag 2> /dev/null || true
+          gh release create "$ID-$SHORT" "$ID-web-$SHORT.zip" --target "$GITHUB_SHA" \
+            --prerelease --title "$NAME $SHORT (offline build)" --notes "$NOTES"
+
+      - name: Keep the newest builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ID: ${{ inputs.id }}
+        run: |
+          gh release list --limit 200 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith(env.ID + "-"))] | sort_by(.createdAt) | reverse | .[env.KEEP_RELEASES | tonumber:] | .[].tagName' \
+            | while read -r old; do gh release delete "$old" --yes --cleanup-tag; done

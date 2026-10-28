@@ -122,6 +122,11 @@
         <input name="keepVersions" type="number" min="0" max="20" step="1" />
         <small>How many earlier versions of each app stay installed after an update, to switch back to under Versions. 0 keeps only the newest.</small>
       </label>
+      <label>
+        <span>Remind me to mirror a site again after (days)</span>
+        <input name="resyncDays" type="number" min="0" max="365" step="1" />
+        <small>A mirror is a copy of a website at one moment. After this many days its card shows Resync, as the site may have changed. 0 turns the reminder off.</small>
+      </label>
       <label class="check">
         <input name="checkUpdatesOnStart" type="checkbox" />
         <span>Check for updates when the library starts</span>

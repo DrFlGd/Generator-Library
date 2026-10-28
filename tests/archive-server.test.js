@@ -78,6 +78,7 @@ test('the static server serves files on loopback with the right types', async ()
   const server = await createStaticServer({ root, entry: 'index.html', spa: true });
   try {
     assert.ok(server.base.startsWith('http://127.0.0.1:'));
+    assert.equal(server.url, `${server.base}/`, 'an index page opens at its folder');
     const page = await fetch(server.url);
     assert.equal(page.status, 200);
     assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8');
@@ -92,5 +93,22 @@ test('the static server serves files on loopback with the right types', async ()
     assert.equal(post.status, 405);
   } finally {
     await server.close();
+  }
+});
+
+test('the static server opens a nested index page at its folder and other pages by name', async () => {
+  const root = await tmp();
+  await fs.mkdir(path.join(root, 'app'));
+  await fs.writeFile(path.join(root, 'app', 'index.html'), '<p>app</p>');
+  await fs.writeFile(path.join(root, 'demo.html'), '<p>demo</p>');
+  const nested = await createStaticServer({ root, entry: 'app/index.html' });
+  const named = await createStaticServer({ root, entry: 'demo.html' });
+  try {
+    assert.equal(nested.url, `${nested.base}/app/`);
+    assert.equal(await (await fetch(nested.url)).text(), '<p>app</p>');
+    assert.equal(named.url, `${named.base}/demo.html`);
+  } finally {
+    await nested.close();
+    await named.close();
   }
 });
