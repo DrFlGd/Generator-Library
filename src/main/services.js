@@ -12,7 +12,7 @@ import { search, facets } from '../lib/search.js';
 import { checkForUpdate, installDistribution, removeVersion as removeKeptVersion, uninstallDistribution } from '../lib/installer.js';
 import { createStableServer } from '../lib/server.js';
 import { removeCode as removeSavedCode, saveCode as saveRepoCode } from '../lib/source.js';
-import { currentPlatform, distributionKey, usableDistributions } from '../lib/manifest.js';
+import { currentPlatform, distributionKey, replacements, usableDistributions } from '../lib/manifest.js';
 import { listWebMirrorSnapshots, mirrorSite } from '../lib/mirror.js';
 import { createJobs } from '../lib/jobs.js';
 import { createRuntimes, WEBMIRROR_REQUIREMENT } from '../lib/runtimes.js';
@@ -179,6 +179,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
 
   function state() {
     const platform = currentPlatform();
+    const replacedBy = replacements(manifests);
     return {
       platform,
       settings: { ...library.state.settings, githubToken: library.state.settings.githubToken ? '••••' : '' },
@@ -200,7 +201,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       hidden: library.state.hidden,
       projects: projects(),
       facets: facets(manifests),
-      generators: manifests.map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
+      generators: manifests.map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey), replacedBy: replacedBy[m.id] ?? [] })),
     };
   }
 

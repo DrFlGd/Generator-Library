@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { normalizeCatalog, resolveCatalog } from '../src/lib/catalog.js';
 import { facets, search } from '../src/lib/search.js';
-import { applyManifestEdit, currentPlatform, distributionKey, editPatch, normalizeManifest, usableDistributions } from '../src/lib/manifest.js';
+import { applyManifestEdit, currentPlatform, distributionKey, editPatch, normalizeManifest, replacements, usableDistributions } from '../src/lib/manifest.js';
 import { mimeFor } from '../src/lib/server.js';
 import { applyTagEdits, editCollections, normalizeTags } from '../src/lib/library.js';
 
@@ -39,7 +39,7 @@ const mock = {
   hidden: [],
   removed: [],
   added: [], // { key, manifest }
-  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2, resyncDays: 30 },
+  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2, resyncDays: 30, hideReplaced: false },
 };
 
 // MOCK_OLD_MIRROR=1 starts with a 45-day-old mirror, to show the Resync reminder.
@@ -65,6 +65,10 @@ function all() {
   return [...manifests, ...mock.added.map((a) => a.manifest)]
     .map((m) => (mock.edits[m.id] ? applyManifestEdit(m, mock.edits[m.id]).manifest : m))
     .map((m) => (mock.tagEdits[m.id] ? { ...m, tags: applyTagEdits(m.tags, mock.tagEdits[m.id]), catalogTags: m.tags } : m));
+}
+
+function shown() {
+  return all().filter((m) => !mock.removed.includes(m.repo));
 }
 
 function state() {
@@ -96,7 +100,7 @@ function state() {
     catalogSource: 'mock',
     problems,
     facets: facets(all()),
-    generators: all().filter((m) => !mock.removed.includes(m.repo)).map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey) })),
+    generators: shown().map((m) => ({ ...m, usable: usableDistributions(m, platform).map(distributionKey), replacedBy: replacements(shown())[m.id] ?? [] })),
   };
 }
 

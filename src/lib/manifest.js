@@ -287,6 +287,7 @@ export function normalizeManifest(raw, context = {}) {
     author: str(raw.author),
     repo: repo ?? '',
     upstream: isValidRepo(raw.upstream) ? raw.upstream : '',
+    supersedes: [...new Set(strList(raw.supersedes).filter((s) => isValidId(s) && s !== id))],
     requires: normalizeRequires(raw.requires, errors),
     distributions,
     // For filtering a large catalog: what it costs, whether downloading needs a
@@ -301,6 +302,22 @@ export function normalizeManifest(raw, context = {}) {
   if (context.collection) manifest.collection = context.collection;
   if (context.path) manifest.manifestPath = context.path;
   return { manifest, errors: [] };
+}
+
+// Who takes whose place. A generator's `supersedes` names the generators it replaces;
+// this returns, for each replaced id in the list, the ids that replace it. Ids not in
+// the list are ignored, and two generators that claim to replace each other cancel out.
+export function replacements(manifests) {
+  const known = new Set(manifests.map((m) => m.id));
+  const claims = new Set();
+  for (const m of manifests) for (const old of m.supersedes ?? []) if (known.has(old)) claims.add(`${m.id}>${old}`);
+  const out = {};
+  for (const claim of claims) {
+    const [by, old] = claim.split('>');
+    if (claims.has(`${old}>${by}`)) continue;
+    (out[old] ??= []).push(by);
+  }
+  return out;
 }
 
 // Your own changes to a generator, from its Edit dialog: a few of its fields and
