@@ -464,6 +464,900 @@
       }
     },
     {
+      "repo": "DrFlGd/Print-Factory",
+      "fallback": {
+        "id": "print-factory",
+        "name": "Print Factory",
+        "repo": "DrFlGd/Print-Factory",
+        "defaults": {
+          "license": "MIT",
+          "author": "Jerred",
+          "tags": [
+            "print-factory"
+          ],
+          "pricing": "free",
+          "openSource": true
+        },
+        "generators": [
+          {
+            "id": "print-factory",
+            "name": "Print Factory",
+            "summary": "All 15 Print Factory generators in one app.",
+            "process": "tool",
+            "category": "collections",
+            "icon": "apps/hub/public/favicon.svg",
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html"
+              }
+            ]
+          },
+          {
+            "id": "pf-bahtinov-mask",
+            "name": "Bahtinov Mask",
+            "version": "1.0.0",
+            "summary": "A focusing mask for your telescope from its focal length, aperture and tube: three gratings, a collar that slides on, printed or cut flat on a laser.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "svg",
+              "dxf"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/bahtinov-mask",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/bahtinov-mask"
+              }
+            ],
+            "category": "mechanical",
+            "tags": [
+              "astronomy",
+              "telescope",
+              "focus",
+              "bahtinov",
+              "laser"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "astromar-bahtinov-mask-generator",
+              "bahtinov-mask"
+            ]
+          },
+          {
+            "id": "pf-bubble-pop",
+            "name": "Bubble Pop Fidget",
+            "version": "1.0.0",
+            "summary": "A snap-through pop fidget in any shape or picture outline, with as many pop buttons as fit, printed in one go with the buttons in place.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/bubble-pop",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/bubble-pop"
+              }
+            ],
+            "category": "puzzles-games",
+            "tags": [
+              "fidget",
+              "pop",
+              "toy",
+              "picture",
+              "print-in-place"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "bubble-pop"
+            ]
+          },
+          {
+            "id": "pf-clicker",
+            "name": "Image to Clicker",
+            "version": "1.0.0",
+            "summary": "A pocket clicker around a real mechanical keyboard switch: your picture or letters on the cap, one key or a row of them, with a keyring loop.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/clicker",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/clicker"
+              }
+            ],
+            "category": "puzzles-games",
+            "tags": [
+              "fidget",
+              "clicker",
+              "switch",
+              "mx",
+              "picture",
+              "keychain"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "clicker-generator"
+            ]
+          },
+          {
+            "id": "pf-foldbox",
+            "name": "Fold-Up Box",
+            "version": "1.0.0",
+            "summary": "Glue-free box nets printed flat as a thin sheet with grooved fold lines: mailers, trays and tray-and-lid sets, with a logo, window and hand holes.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/foldbox",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/foldbox"
+              }
+            ],
+            "category": "boxes",
+            "tags": [
+              "box",
+              "fold",
+              "mailer",
+              "tray",
+              "packaging",
+              "gift box"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "foldbox"
+            ]
+          },
+          {
+            "id": "pf-gearbox",
+            "name": "GearBox Gear Board",
+            "version": "1.0.0",
+            "summary": "Parts and kits for a modular gear board: spur gears on ball bearings, interlocking pegboard tiles, cranks, motor mounts and mechanisms, in three sizes.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/gearbox",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/gearbox"
+              }
+            ],
+            "category": "mechanical",
+            "tags": [
+              "gears",
+              "gear board",
+              "mechanism",
+              "pegboard",
+              "bearings",
+              "kit",
+              "educational"
+            ],
+            "license": "MIT"
+          },
+          {
+            "id": "pf-house-number",
+            "name": "House Number",
+            "version": "1.0.0",
+            "summary": "House and office number signs: one or two lines at their own sizes, plates, bands, frames, inlaid or raised numbers, and hidden keyhole mounts.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/house-number",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/house-number"
+              }
+            ],
+            "category": "signs-text",
+            "tags": [
+              "sign",
+              "house number",
+              "door",
+              "plaque",
+              "text"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "house-number"
+            ]
+          },
+          {
+            "id": "pf-keycap",
+            "name": "Custom Keycap",
+            "version": "1.0.0",
+            "summary": "Keycaps from 1u to a 6.5u spacebar with an icon, logo or letters inlaid, engraved or shine-through, on MX or Choc stems, with a stem fit test.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/keycap",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/keycap"
+              }
+            ],
+            "category": "customizers",
+            "tags": [
+              "keycap",
+              "keyboard",
+              "mx",
+              "choc",
+              "legend",
+              "shine-through"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "keycap-generator"
+            ]
+          },
+          {
+            "id": "pf-keychain-carabiner",
+            "name": "Keychain Carabiner Set",
+            "version": "1.0.0",
+            "summary": "A snap-hook clip with a spring gate, a chain (open links or printed already linked), connector rings and a charm, in any shape, printed flat in one job.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/keychain-carabiner",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/keychain-carabiner"
+              }
+            ],
+            "category": "keychains",
+            "tags": [
+              "carabiner",
+              "clip",
+              "chain",
+              "charm",
+              "swivel",
+              "print-in-place"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "keychain-carabiner"
+            ]
+          },
+          {
+            "id": "pf-label",
+            "name": "Bin Label",
+            "version": "1.0.0",
+            "summary": "Gridfinity and drawer labels: a fastener or library icon, one or two lines or a screw drawn to length, a whole drawer at once, raised, inlaid or engraved.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/label",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/label"
+              }
+            ],
+            "category": "storage",
+            "tags": [
+              "label",
+              "gridfinity",
+              "organizer",
+              "screws",
+              "multicolour"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "gridfinity-label-generator"
+            ]
+          },
+          {
+            "id": "pf-laser-box",
+            "name": "Laser Box",
+            "version": "1.0.0",
+            "summary": "Finger-jointed boxes cut from plywood, MDF, acrylic or board: open trays, lift-off and hinged lids, and chests of drawers, with dividers, flex tabs and patterns, laid out on your sheets.",
+            "process": "laser",
+            "exports": [
+              "svg",
+              "dxf"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/laser-box",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/laser-box"
+              }
+            ],
+            "category": "boxes",
+            "tags": [
+              "box",
+              "laser",
+              "finger joint",
+              "plywood",
+              "drawer",
+              "hinge",
+              "pattern"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "laser-box"
+            ]
+          },
+          {
+            "id": "pf-laser-studio",
+            "name": "Laser Studio",
+            "version": "1.0.0",
+            "summary": "Pick a design, type your text, download the cut file: keychains, tags, charms, coasters, ornaments, cake toppers, plant stakes, place cards, QR tags and jigsaws, laid out on your sheet.",
+            "process": "laser",
+            "exports": [
+              "svg",
+              "dxf"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/laser-studio",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/laser-studio"
+              }
+            ],
+            "category": "laser",
+            "tags": [
+              "laser",
+              "keychain",
+              "tag",
+              "ornament",
+              "coaster",
+              "cake topper",
+              "qr",
+              "jigsaw",
+              "place cards"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "laser-studio"
+            ]
+          },
+          {
+            "id": "pf-led-lightbox",
+            "name": "Image LED Lightbox",
+            "version": "1.0.0",
+            "summary": "Turn a picture into a lightbox: a hollow shell with an LED ledge, and a translucent cover with the picture's colours inlaid in its face.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/led-lightbox",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/led-lightbox"
+              }
+            ],
+            "category": "vases-lamps",
+            "tags": [
+              "led",
+              "lightbox",
+              "image",
+              "sign",
+              "lamp",
+              "multicolour"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "led-lightbox"
+            ]
+          },
+          {
+            "id": "pf-magnet",
+            "name": "Fridge Magnet & Fidget Slider",
+            "version": "1.0.0",
+            "summary": "A picture or text as a fridge magnet with pockets sized for the magnets you own, or as a two-piece magnetic slider that clicks.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/magnet",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/magnet"
+              }
+            ],
+            "category": "gifts",
+            "tags": [
+              "magnet",
+              "fridge",
+              "fidget",
+              "slider",
+              "image",
+              "multicolour"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "magnet-generator"
+            ]
+          },
+          {
+            "id": "pf-name-keychain",
+            "name": "Name Keychain",
+            "version": "1.0.0",
+            "summary": "Name keychains and tags in any of 64 fonts: one, two or three colours, raised, inlaid or engraved letters, with or without an AMS.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/name-keychain",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/name-keychain"
+              }
+            ],
+            "category": "keychains",
+            "tags": [
+              "keychain",
+              "name",
+              "text",
+              "tag",
+              "multicolour"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "name-keychain"
+            ]
+          },
+          {
+            "id": "pf-pen-topper",
+            "name": "Pen Topper",
+            "version": "1.0.0",
+            "summary": "Name toppers that push onto a pen, pencil, stylus, straw or drawstring: a socket sized to what you own, with grip ribs, in any font, with a symbol.",
+            "process": "3d-print",
+            "exports": [
+              "3mf",
+              "stl",
+              "obj"
+            ],
+            "distributions": [
+              {
+                "kind": "bundle",
+                "label": "Build from source",
+                "from": {
+                  "type": "repo",
+                  "repo": "DrFlGd/Print-Factory"
+                },
+                "entry": "index.html#/m/pen-topper",
+                "build": {
+                  "output": "dist",
+                  "steps": [
+                    [
+                      "npm",
+                      "run",
+                      "build"
+                    ]
+                  ]
+                }
+              },
+              {
+                "kind": "bundle",
+                "label": "Install release",
+                "from": {
+                  "type": "release",
+                  "tag": "web-*",
+                  "asset": "print-factory-web-*.zip"
+                },
+                "entry": "index.html#/m/pen-topper"
+              }
+            ],
+            "category": "gifts",
+            "tags": [
+              "pen",
+              "pencil",
+              "topper",
+              "name",
+              "school",
+              "gift"
+            ],
+            "license": "MIT",
+            "supersedes": [
+              "pen-topper"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "repo": "DrFlGd/Marble-Run-Maker",
       "fallback": {
         "id": "marble-run-maker",

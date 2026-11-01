@@ -147,6 +147,10 @@ async function runSearch() {
   if (shown) ids = ids.filter((id) => shown.ids.includes(id));
   const hidden = new Set(state.data.hidden ?? []);
   ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
+  // Settings can leave out generators another one replaces, unless you installed or starred them.
+  if (state.data.settings.hideReplaced && state.show === 'all') {
+    ids = ids.filter((id) => !generatorById(id)?.replacedBy?.length || installedIds.has(id) || state.data.favorites.includes(id));
+  }
   state.base = ids;
   state.results = ids.filter((id) => matchesFilters(generatorById(id)));
   renderFilters();
@@ -472,6 +476,14 @@ function iconFor(g) {
   return (g.name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
 }
 
+// Links to other generators by id, opening their page: "replaced by X, Y".
+function replacementLinks(prefix, ids) {
+  const found = (ids ?? []).map(generatorById).filter(Boolean);
+  if (!found.length) return null;
+  const links = found.flatMap((r, i) => [i ? ', ' : '', el('button', { class: 'link', type: 'button', onclick: () => openDetail(r.id) }, r.name)]);
+  return el('span', {}, prefix, ...links);
+}
+
 function renderCard(g) {
   const installed = installedRecords(g.id);
   const update = hasUpdate(g.id);
@@ -497,6 +509,7 @@ function renderCard(g) {
         return el('span', { class: `badge badge-kind ${mark === 'works' ? 'is-works' : 'is-broken'}`, title: mark === 'works' ? 'You marked the mirror as working offline' : 'You marked the mirror as needing the internet' }, `Mirror ${mark === 'works' ? '✓' : '✗'}`);
       }),
       installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
+      g.replacedBy?.length ? el('span', { class: 'badge', title: `Replaced by ${g.replacedBy.map((id) => generatorById(id)?.name ?? id).join(', ')}` }, 'Replaced') : null,
       state.data.code?.[g.id] ? el('span', { class: 'badge', title: "A copy of the repository's files is saved on this computer" }, 'Source saved') : null,
       update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
       needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
@@ -823,6 +836,8 @@ function renderDetail() {
       ? el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.repo}` }) }, `github.com/${g.repo}`)
       : el('span', {}, g.homepage || g.source || ''),
     g.upstream ? el('span', {}, ' · fork of ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: `https://github.com/${g.upstream}` }) }, g.upstream)) : null,
+    replacementLinks(' · replaced by ', g.replacedBy),
+    replacementLinks(' · replaces ', (g.supersedes ?? []).filter((id) => generatorById(id))),
     g.homepage ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.homepage }) }, 'homepage')) : null,
     g.listing ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => call('openExternal', { url: g.listing }) }, /skipthecad\.com/.test(g.listing) ? 'SkipTheCAD listing' : 'listing')) : null,
     g.manifestPath ? el('span', { class: 'muted' }, ` · ${g.manifestPath}`) : g.listing ? null : el('span', { class: 'muted' }, g.repo ? ' · described by the catalog (no generator.json in the repo yet)' : ' · added by link'),
@@ -1112,6 +1127,7 @@ function renderSettings() {
   form.pythonPath.value = s.pythonPath;
   form.webmirrorHome.value = s.webmirrorHome;
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
+  form.hideReplaced.checked = Boolean(s.hideReplaced);
   form.keepVersions.value = String(s.keepVersions ?? 2);
   form.resyncDays.value = String(s.resyncDays ?? 30);
   renderRuntimes();
@@ -1256,6 +1272,7 @@ $('settings-form').addEventListener('submit', async (event) => {
     pythonPath: form.pythonPath.value.trim(),
     webmirrorHome: form.webmirrorHome.value.trim(),
     checkUpdatesOnStart: form.checkUpdatesOnStart.checked,
+    hideReplaced: form.hideReplaced.checked,
     keepVersions: Math.max(0, Math.min(20, Math.round(Number(form.keepVersions.value) || 0))),
     resyncDays: Math.max(0, Math.min(365, Math.round(Number(form.resyncDays.value) || 0))),
   };

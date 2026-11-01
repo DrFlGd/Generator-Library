@@ -164,6 +164,11 @@
         <input name="checkUpdatesOnStart" type="checkbox" />
         <span>Check for updates when the library starts</span>
       </label>
+      <label class="check">
+        <input name="hideReplaced" type="checkbox" />
+        <span>Hide generators that another one replaces</span>
+      </label>
+      <small>A generator can say it takes the place of another, such as a rewrite of a third-party tool. The replaced one's page links to it either way; this leaves it out of the grid unless it is installed or a favourite.</small>
       <div class="row">
         <button type="submit" class="btn btn-primary">Save</button>
       </div>

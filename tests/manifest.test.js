@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyDefaults, normalizeCollection, normalizeManifest, overlayManifest, usableDistributions } from '../src/lib/manifest.js';
+import { applyDefaults, normalizeCollection, normalizeManifest, overlayManifest, replacements, usableDistributions } from '../src/lib/manifest.js';
 
 const minimal = () => ({ id: 'thing', name: 'Thing', distributions: [{ kind: 'web', url: 'https://example.com/' }] });
 
@@ -103,4 +103,21 @@ test('overlayManifest replaces fields and unions tags', () => {
   assert.equal(out.distributions.length, 1);
   assert.equal(overlayManifest(null, { id: 'x' }).id, 'x');
   assert.equal(overlayManifest(base, null), base);
+});
+
+test('supersedes keeps valid ids other than its own, once each', () => {
+  const { manifest } = normalizeManifest({ ...minimal(), supersedes: ['old-thing', 'thing', 'Bad Id', 'old-thing', 7] }, { repo: 'o/r' });
+  assert.deepEqual(manifest.supersedes, ['old-thing']);
+  assert.deepEqual(normalizeManifest(minimal(), { repo: 'o/r' }).manifest.supersedes, []);
+});
+
+test('replacements lists who replaces whom, ignoring unknown ids and mutual claims', () => {
+  const list = [
+    { id: 'pf-label', supersedes: ['gridfinity-label-generator', 'not-in-catalog'] },
+    { id: 'gridfinity-label-generator', supersedes: [] },
+    { id: 'other-label', supersedes: ['gridfinity-label-generator'] },
+    { id: 'a', supersedes: ['b'] },
+    { id: 'b', supersedes: ['a'] },
+  ];
+  assert.deepEqual(replacements(list), { 'gridfinity-label-generator': ['pf-label', 'other-label'] });
 });
