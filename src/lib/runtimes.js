@@ -265,9 +265,11 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
     return record;
   }
 
-  async function installPackages(record, packages, { log = () => {}, progress = () => {} } = {}) {
+  // `force` reinstalls every package already there (Settings' Update now), and
+  // then a failure is an error rather than a note in the log.
+  async function installPackages(record, packages, { log = () => {}, progress = () => {} } = {}, { force = false } = {}) {
     const missing = packages.filter((p) => !record.packages?.[p.spec]);
-    const stale = packages.filter((p) => record.packages?.[p.spec] && packageIsStale(p, record.packages[p.spec]));
+    const stale = packages.filter((p) => record.packages?.[p.spec] && (force || packageIsStale(p, record.packages[p.spec])));
     if (!missing.length && !stale.length) return record;
     const name = (p) => p.import || p.spec.split(/[\s@[]/)[0];
     const pip = (args) =>
@@ -293,6 +295,7 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
         await pip(stale.map((p) => p.spec));
         for (const p of stale) next.packages[p.spec] = new Date().toISOString();
       } catch (error) {
+        if (force) throw error;
         // Offline, or the source is down: the installed copy still works.
         log(`Could not update ${stale.map(name).join(', ')}; using the installed copy (${error.message.slice(0, 160)})`);
       }
@@ -303,10 +306,11 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
 
   // The interpreter to use for a set of Python requirements, installing what is
   // missing. A Python path set in Settings is used as is, never modified.
-  async function ensurePython(packages = [], hooks = {}) {
+  async function ensurePython(packages = [], hooks = {}, { force = false } = {}) {
     const imports = packages.map((p) => p.import).filter(Boolean);
     const configured = library.state.settings.pythonPath;
     if (configured) {
+      if (force) throw new Error(`The library does not change the Python set in Settings (${configured}); update its packages there, or clear the setting.`);
       if (await canImport(configured, imports, { spawnImpl })) return configured;
       throw new Error(`The Python set in Settings (${configured}) cannot import ${imports.join(', ')}. Clear the setting to let the library manage its own Python.`);
     }
@@ -322,8 +326,15 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
       hooks.log?.('Python is not installed for the library yet; installing a private copy (about 30 MB, once).');
       record = await installPython(hooks);
     }
-    record = await installPackages(record, packages, hooks);
+    record = await installPackages(record, packages, hooks, { force });
     return record.executable;
+  }
+
+  // Install the newest copy of a Python requirement's packages now, whatever their age.
+  async function refresh(requirement, hooks = {}) {
+    const python = await ensurePython(requirement.packages ?? [], hooks, { force: true });
+    hooks.log?.(`Updated ${(requirement.packages ?? []).map((p) => p.import || p.spec).join(', ')}`);
+    return python;
   }
 
   async function ensure(requires, hooks = {}) {
@@ -348,10 +359,12 @@ export function createRuntimes({ library, fetchImpl = globalThis.fetch, spawnImp
       python: {
         configured: library.state.settings.pythonPath || '',
         managed: record ? { version: record.version, dir: record.dir, packages: Object.keys(record.packages ?? {}) } : null,
+        // When WebMirror was last installed from its main branch, or '' if it is not yet.
+        webmirror: record?.packages?.[WEBMIRROR_REQUIREMENT.packages[0].spec] ?? '',
         build: `${PYTHON_BUILD.minor} (${PYTHON_BUILD.tag})`,
       },
     };
   }
 
-  return { ensure, ensurePython, ensureNode, installPython, installNode, installPackages, remove, status };
+  return { ensure, ensurePython, ensureNode, installPython, installNode, installPackages, refresh, remove, status };
 }

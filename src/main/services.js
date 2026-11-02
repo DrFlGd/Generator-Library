@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createGitHub } from '../lib/github.js';
 import { normalizeCatalog, resolveCatalog } from '../lib/catalog.js';
 import { search, facets } from '../lib/search.js';
@@ -25,7 +25,9 @@ import { applyTagEdits, sourceKey } from '../lib/library.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_CATALOG = path.join(here, '..', '..', 'catalog', 'catalog.json');
 
-export function createServices({ library, app, openGeneratorWindow, openExternal, shell, location = null, relaunch = () => {}, chooseFolder = async () => '' }) {
+// `images` turns a window or a picture file into a thumbnail JPEG (Electron's
+// nativeImage, injected by main.js); `chooseImage` asks for a picture file.
+export function createServices({ library, app, openGeneratorWindow, openExternal, shell, location = null, relaunch = () => {}, chooseFolder = async () => '', chooseImage = async () => '', images = null }) {
   let github = createGitHub({ token: library.state.settings.githubToken });
   let manifests = []; // the catalog's generators with your own edits and tags applied
   let resolvedManifests = []; // as the catalog describes them
@@ -33,11 +35,65 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   let catalogSource = 'bundled';
   let catalogSources = []; // every source last loaded, removed ones included
   const servers = new Map(); // installed record key -> { server, window }
+  const windows = new Map(); // generator id -> its open windows, newest last
   const listeners = new Set();
 
   const emit = (channel, payload) => {
     for (const fn of listeners) fn(channel, payload);
   };
+
+  const openWindowIds = () => [...windows.keys()];
+
+  // Every generator window goes through here, so a thumbnail can be taken of it
+  // (its Library menu, or Take thumbnail in the library) while it is open.
+  function openWindowFor(id, options) {
+    let win = null;
+    win = openGeneratorWindow({ ...options, onCapture: () => captureThumbnail({ id, window: win }).catch((error) => console.error('thumbnail failed', error)) });
+    if (!win) return win;
+    const list = windows.get(id) ?? [];
+    windows.set(id, [...list, win]);
+    win.on?.('focus', () => windows.set(id, [...(windows.get(id) ?? []).filter((w) => w !== win), win]));
+    win.on?.('closed', () => {
+      const rest = (windows.get(id) ?? []).filter((w) => w !== win);
+      if (rest.length) windows.set(id, rest);
+      else windows.delete(id);
+      emit('windows:changed', openWindowIds());
+    });
+    emit('windows:changed', openWindowIds());
+    return win;
+  }
+
+  function thumbnailUrls() {
+    const out = {};
+    for (const [id, t] of Object.entries(library.state.thumbnails ?? {})) {
+      out[id] = `${pathToFileURL(path.join(library.thumbnailsDir, t.file)).href}?v=${encodeURIComponent(t.savedAt)}`;
+    }
+    return out;
+  }
+
+  // A picture of what the generator's window shows now, for its card.
+  async function captureThumbnail({ id, window: win = null }) {
+    if (!images) throw new Error('Thumbnails need the desktop app');
+    const target = win && !win.isDestroyed() ? win : (windows.get(id) ?? []).filter((w) => !w.isDestroyed()).at(-1);
+    if (!target) throw new Error('Open the generator first, then take its thumbnail');
+    await library.setThumbnail(id, await images.capture(target));
+    images.flash?.(target, 'Thumbnail saved');
+    emit('catalog:changed', { thumbnails: true });
+    return state();
+  }
+
+  async function chooseThumbnail({ id }) {
+    if (!images) throw new Error('Thumbnails need the desktop app');
+    const file = await chooseImage();
+    if (!file) return state();
+    await library.setThumbnail(id, await images.fromFile(file));
+    return state();
+  }
+
+  async function removeThumbnail({ id }) {
+    await library.setThumbnail(id, null);
+    return state();
+  }
   const jobs = createJobs({ emit });
   // Runtime downloads are public files, so they go through a token-less client.
   const runtimes = createRuntimes({ library, download: createGitHub().download });
@@ -103,6 +159,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
         overlayOnly: !s.repo, // a website has nothing to read from GitHub
         enabled: true,
         origin: 'yours',
+        addedAt: s.addedAt ?? '',
       })),
     );
     const removed = new Set(library.state.removedSources.map((k) => k.toLowerCase()));
@@ -191,6 +248,8 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       installed: library.state.installed,
       kept: library.state.kept,
       code: library.state.code ?? {},
+      thumbnails: thumbnailUrls(),
+      openWindows: openWindowIds(),
       running: [...servers.keys()],
       jobs: jobs.list(),
       runtimes: runtimes.status(),
@@ -312,7 +371,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
       }
       const dist = distributionOf(manifest, distKey);
       const server = await createStableServer(key, { root: record.dir, entry: record.entry, spa: dist.spa });
-      const win = openGeneratorWindow({ title: manifest.name, url: server.url, partition: `persist:${manifest.id}` });
+      const win = openWindowFor(id, { title: manifest.name, url: server.url, partition: `persist:${manifest.id}` });
       win.on('closed', () => stopServer(key));
       servers.set(key, { server, window: win });
       return { url: server.url };
@@ -350,7 +409,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     const dist = distributionOf(manifest, distKey);
     if (!dist.url) throw new Error('No URL for this distribution');
     await library.touchRecent(id);
-    openGeneratorWindow({ title: manifest.name, url: dist.url, partition: `persist:${manifest.id}` });
+    openWindowFor(id, { title: manifest.name, url: dist.url, partition: `persist:${manifest.id}` });
     return { url: dist.url };
   }
 
@@ -429,7 +488,7 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
         .filter((m) => m.source === key)
         .map((m) => ({ id: m.id, name: m.name, hidden: hidden.has(m.id), installed: installed.has(m.id) }));
       const fallbackName = source.overlay?.name ?? source.fallback?.name ?? '';
-      return { key, kind: source.repo ? 'repo' : 'link', origin: source.origin ?? 'catalog', removed: !source.enabled, name: generators.length === 1 ? generators[0].name : fallbackName || key, generators };
+      return { key, kind: source.repo ? 'repo' : 'link', origin: source.origin ?? 'catalog', addedAt: source.addedAt ?? '', removed: !source.enabled, name: generators.length === 1 ? generators[0].name : fallbackName || key, generators };
     });
   }
 
@@ -476,7 +535,10 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     for (const m of manifests.filter((x) => x.source === key)) {
       for (const record of library.installedFor(m.id)) await uninstall({ id: m.id, distKey: record.distKey });
     }
-    if (library.state.sources.some((s) => sourceKey(s) === key)) await library.removeSource(key);
+    if (library.state.sources.some((s) => sourceKey(s) === key)) {
+      for (const m of manifests.filter((x) => x.source === key)) if (library.state.thumbnails?.[m.id]) await library.setThumbnail(m.id, null);
+      await library.removeSource(key);
+    }
     else await library.setSourceRemoved(key, true);
     return refreshCatalog();
   }
@@ -520,6 +582,13 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
   async function installRuntime({ runtime = 'python' } = {}) {
     if (runtime === 'node') await jobs.run({ title: 'Installing Node.js', kind: 'runtime' }, (job) => runtimes.ensure([{ runtime: 'node' }], job));
     else await jobs.run({ title: 'Installing Python and WebMirror', kind: 'runtime' }, (job) => runtimes.ensure([WEBMIRROR_REQUIREMENT], job));
+    return state();
+  }
+
+  // Settings' Update now: WebMirror follows its main branch, so this installs
+  // whatever is there now instead of waiting for the daily refresh.
+  async function updateWebMirror() {
+    await jobs.run({ title: 'Updating WebMirror', kind: 'runtime' }, (job) => runtimes.refresh(WEBMIRROR_REQUIREMENT, job));
     return state();
   }
 
@@ -606,6 +675,10 @@ export function createServices({ library, app, openGeneratorWindow, openExternal
     openSnapshot,
     installRuntime,
     removeRuntime,
+    updateWebMirror,
+    captureThumbnail: ({ id }) => captureThumbnail({ id }),
+    chooseThumbnail,
+    removeThumbnail,
     versions,
     useVersion,
     removeVersion,

@@ -23,6 +23,11 @@ One place to browse, search, install, launch and update model generators: web ap
 - **Your own collections**: **Collections → + New** in the sidebar makes a named list, and the Collections row in a generator's page adds it to or takes it out of any of them. Click a collection to show only what is in it; rename or delete it from the same row.
 - **The SkipTheCAD directory**: about 650 generators from [SkipTheCAD](https://skipthecad.com/) are listed by category. MakerWorld models open on MakerWorld; generators with a GitHub repository install from its releases or build from its source; free tools that need no account can be mirrored. [`scripts/import-skipthecad.mjs`](scripts/import-skipthecad.mjs) does the import, and a weekly workflow ([`skipthecad.yml`](.github/workflows/skipthecad.yml)) runs it again and opens a pull request when the directory changes.
 - **Mark mirrors that work offline**: many sites still need their own server after mirroring. On a generator's Mirror row, mark the copy **Works offline** or **Needs the internet**; the card shows Mirror ✓ or ✗, the **Mirror checked** filter finds either (or the ones not checked yet), and a mirror marked as needing the internet no longer counts under Works offline or Ready offline. The marks stay on your computer.
+- **Views and sorting**: show generators as **Cards**, large **Thumbnails** or a **List**, sorted by catalog order, name, last opened, last installed, last added by you, category or favorites first. The choice is remembered.
+- **Thumbnails from the app itself**: open a generator, set it up the way you want it pictured, then press **Take thumbnail** on its page (or Ctrl+Shift+T, also in the window's Library menu under Alt). The picture is kept in the library folder and shown on its card; a picture file can be chosen instead for desktop apps, and catalog screenshots are used until you take one.
+- **Your sources**: **Settings → Your sources** lists the repositories and websites you added. **Show** lists just their generators in the library, **Open page** goes to a single generator's page, and **Remove** deletes it with its installs. A source you added can also be removed from its **Edit** dialog.
+- **Update WebMirror now**: **Settings → Dependencies** shows when WebMirror was last installed and updates it from its main branch at once.
+- **The Drafting Sheet look** shared with Repo Sync: light or dark (Settings → Theme), with the Overpass fonts bundled so it looks the same offline.
 - **Your work stays put**: each app is served on the same local address every launch, so what it saves in the browser (settings, layouts) is there next time.
 
 ![A generator's detail view](docs/screenshot-detail.png)
@@ -58,3 +63,5 @@ Requires Node.js 22+. Windows and Linux packages are built by `.github/workflows
 ## License
 
 MIT. Each generator keeps its own license.
+
+The Overpass and Overpass Mono fonts in `src/renderer/fonts/` are © The Overpass Project Authors, under the SIL Open Font License 1.1 (`src/renderer/fonts/OFL.txt`).

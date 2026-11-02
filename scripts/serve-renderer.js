@@ -38,8 +38,11 @@ const mock = {
   python: null,
   hidden: [],
   removed: [],
-  added: [], // { key, manifest }
-  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2, resyncDays: 30 },
+  added: [], // { key, manifest, addedAt }
+  thumbnails: {}, // id -> data URL, as if taken from its window
+  openWindows: [], // ids opened with launch or openWeb
+  webmirrorAt: '',
+  settings: { githubToken: '', catalogRepo: 'DrFlGd/Generator-Library', pythonPath: '', webmirrorHome: '', checkUpdatesOnStart: false, keepVersions: 2, resyncDays: 30, theme: process.env.MOCK_THEME || 'system' },
 };
 
 // MOCK_OLD_MIRROR=1 starts with a 45-day-old mirror, to show the Resync reminder.
@@ -57,6 +60,24 @@ if (process.env.MOCK_UPDATES) {
     const type = ['release', 'repo', 'page'][i % 3];
     mock.installed[`${m.id}/${d.key}`] = { id: m.id, name: m.name, distKey: d.key, kind: d.kind, version: 'v1.0.0', source: { type }, dir: `/mock/${m.id}`, installedAt: new Date().toISOString(), sizeBytes: 1000 };
   });
+}
+
+// A stand-in for a picture of a generator's window.
+function mockPicture(name) {
+  const hue = [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="hsl(${hue},30%,88%)"/><g fill="none" stroke="hsl(${hue},45%,35%)" stroke-width="3"><rect x="250" y="120" width="300" height="220"/><path d="M250 120l60-50h300l-60 50M550 340l60-50V70"/></g><text x="30" y="470" font-family="sans-serif" font-size="28" fill="hsl(${hue},45%,30%)">${name.replace(/[<&]/g, '')}</text></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+// MOCK_THUMBS=n gives the first n generators a picture.
+for (const m of manifests.slice(0, Number(process.env.MOCK_THUMBS) || 0)) mock.thumbnails[m.id] = mockPicture(m.name);
+
+// MOCK_ADDED=1 starts with two sources you added.
+if (process.env.MOCK_ADDED) {
+  for (const [i, [key, name]] of [['https://example.com/box-maker', 'Example Box Maker'], ['someone/lithophane-tool', 'Lithophane Tool']].entries()) {
+    const { manifest } = normalizeManifest({ id: `added-${i}`, name, summary: 'Added by link for the mock.', tags: ['mock'], distributions: [{ kind: 'web', url: 'https://example.com/' }] }, { repo: '' });
+    mock.added.push({ key, addedAt: new Date(Date.now() - i * 86400000).toISOString(), manifest: { ...manifest, source: key, origin: 'yours' } });
+  }
 }
 
 const MOCK_RELEASES = ['v1.2.0', 'v1.1.0', 'v1.0.0'].map((tag, i) => ({ tag, name: tag, publishedAt: `2026-10-${20 - i * 5}T00:00:00Z`, prerelease: false, size: 9_000_000 + i, htmlUrl: '' }));
@@ -81,17 +102,19 @@ function state() {
     installed: mock.installed,
     kept: mock.kept,
     code: mock.code,
+    thumbnails: mock.thumbnails,
+    openWindows: mock.openWindows,
     running: [],
     jobs: mock.jobs,
     hidden: mock.hidden,
     projects: [
-      ...mock.added.map(({ key, manifest }) => ({ key, kind: key.includes('/') && !key.startsWith('http') ? 'repo' : 'link', origin: 'yours', removed: false, name: manifest.name, generators: [{ id: manifest.id, name: manifest.name, hidden: mock.hidden.includes(manifest.id), installed: false }] })),
+      ...mock.added.map(({ key, manifest, addedAt }) => ({ key, addedAt: addedAt ?? '', kind: key.includes('/') && !key.startsWith('http') ? 'repo' : 'link', origin: 'yours', removed: false, name: manifest.name, generators: [{ id: manifest.id, name: manifest.name, hidden: mock.hidden.includes(manifest.id), installed: false }] })),
       ...catalog.sources.map((source) => {
         const gens = all().filter((m) => m.repo === source.repo && !mock.added.some((a) => a.manifest.id === m.id));
         return { key: source.repo, kind: 'repo', origin: 'catalog', removed: mock.removed.includes(source.repo), name: gens.length === 1 ? gens[0].name : source.fallback?.name ?? source.repo, generators: gens.map((g) => ({ id: g.id, name: g.name, hidden: mock.hidden.includes(g.id), installed: Object.values(mock.installed).some((r) => r.id === g.id) })) };
       }),
     ],
-    runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, build: '3.12 (mock)' }, node: { managed: null, build: '24 (mock)' } },
+    runtimes: { python: { configured: mock.settings.pythonPath, managed: mock.python, webmirror: mock.python ? mock.webmirrorAt : '', build: '3.12 (mock)' }, node: { managed: null, build: '24 (mock)' } },
     dataLocation: { dir: 'E:\\Generator Library\\Generator Library Data', mode: 'legacy', portable: true, suggested: 'E:\\Generator Library\\Generator Library Data' },
     catalogSource: 'mock',
     problems,
@@ -144,9 +167,15 @@ const handlers = {
     mock.kept[key] = (mock.kept[key] ?? []).filter((r) => r.version !== version);
     return state();
   },
-  launch: () => ({ launched: true }),
+  // Both open a window, which a thumbnail can then be taken of.
+  launch: ({ id }) => {
+    mock.recent = [id, ...mock.recent.filter((x) => x !== id)];
+    if (!mock.openWindows.includes(id)) mock.openWindows.push(id);
+    return { launched: true };
+  },
   openWeb: ({ id }) => {
     mock.recent = [id, ...mock.recent.filter((x) => x !== id)];
+    if (!mock.openWindows.includes(id)) mock.openWindows.push(id);
     return { url: '' };
   },
   // MOCK_MIRROR_FAIL=1 shows how a failed job looks on its distribution row.
@@ -224,8 +253,27 @@ const handlers = {
   chooseDataFolder: () => '',
   moveData: ({ dir }) => ({ relaunching: true, dir }),
   installRuntime: () => {
+    mock.webmirrorAt = new Date().toISOString();
     mock.python = { version: '3.12.16', dir: '/mock/runtimes/python', packages: ['webmirror[dynamic] @ https://github.com/DrFlGd/WebMirror/archive/refs/heads/main.zip'] };
     mockJob('Installing Python and WebMirror', null);
+    return state();
+  },
+  updateWebMirror: () => {
+    mock.webmirrorAt = new Date().toISOString();
+    mockJob('Updating WebMirror', null);
+    return state();
+  },
+  captureThumbnail: ({ id }) => {
+    if (!mock.openWindows.includes(id)) throw new Error('Open the generator first, then take its thumbnail');
+    mock.thumbnails[id] = mockPicture(all().find((m) => m.id === id)?.name ?? id);
+    return state();
+  },
+  chooseThumbnail: ({ id }) => {
+    mock.thumbnails[id] = mockPicture(`${all().find((m) => m.id === id)?.name ?? id} (file)`);
+    return state();
+  },
+  removeThumbnail: ({ id }) => {
+    delete mock.thumbnails[id];
     return state();
   },
   removeRuntime: () => {
@@ -244,7 +292,7 @@ const handlers = {
   addProject: ({ found, edits }) => {
     const raw = { ...found.raw, ...Object.fromEntries(Object.entries(edits).filter(([, v]) => typeof v === 'string' && v)) };
     const { manifest } = normalizeManifest(raw, { repo: '' });
-    mock.added.push({ key: found.key, manifest: { ...manifest, source: found.key, origin: 'yours' } });
+    mock.added.push({ key: found.key, addedAt: new Date().toISOString(), manifest: { ...manifest, source: found.key, origin: 'yours' } });
     return state();
   },
   removeProject: ({ key }) => {

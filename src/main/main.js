@@ -4,7 +4,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, dialog, shell, session } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage, shell, session } from 'electron';
 import { Library } from '../lib/library.js';
 import { createServices } from './services.js';
 import { registerIpc } from './ipc.js';
@@ -39,6 +39,31 @@ async function chooseFolder({ title = 'Choose a folder', defaultPath } = {}) {
   return result.canceled ? '' : result.filePaths[0] ?? '';
 }
 
+async function chooseImage() {
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Choose a picture', properties: ['openFile'], filters: [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }] });
+  return result.canceled ? '' : result.filePaths[0] ?? '';
+}
+
+// Thumbnails are JPEGs at most 800 pixels wide: enough for the biggest card.
+const THUMB_WIDTH = 800;
+function toThumbnail(image) {
+  if (image.isEmpty()) throw new Error('The picture was empty');
+  const { width } = image.getSize();
+  return (width > THUMB_WIDTH ? image.resize({ width: THUMB_WIDTH, quality: 'best' }) : image).toJPEG(86);
+}
+
+const images = {
+  capture: async (win) => toThumbnail(await win.webContents.capturePage()),
+  fromFile: async (file) => toThumbnail(nativeImage.createFromPath(file)),
+  // Say so in the window's title for a moment, as the window is what you are looking at.
+  flash(win, text) {
+    if (win.isDestroyed()) return;
+    const title = win.getTitle();
+    win.setTitle(`${title} · ${text}`);
+    setTimeout(() => !win.isDestroyed() && win.setTitle(title), 2500);
+  },
+};
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: 'Generator Library',
@@ -46,7 +71,7 @@ function createMainWindow() {
     height: 880,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#0f1217',
+    backgroundColor: '#edf0ee',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -88,7 +113,7 @@ export function openExternal(url) {
 // Generators open in their own window with no preload and no Node access: a web
 // generator is an ordinary web page as far as the library is concerned. Download
 // links inside it get Electron's native save dialog.
-export function openGeneratorWindow({ title, url, partition }) {
+export function openGeneratorWindow({ title, url, partition, onCapture = null }) {
   const win = new BrowserWindow({
     title,
     width: 1440,
@@ -109,6 +134,23 @@ export function openGeneratorWindow({ title, url, partition }) {
     openExternal(target);
     return { action: 'deny' };
   });
+  // Its menu (Alt shows it) takes the picture on the generator's card.
+  win.setMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Library',
+        submenu: [
+          ...(onCapture ? [{ label: 'Use this view as its thumbnail', accelerator: 'CmdOrCtrl+Shift+T', click: () => onCapture() }, { type: 'separator' }] : []),
+          { role: 'reload' },
+          { role: 'forceReload' },
+          { type: 'separator' },
+          { role: 'close' },
+        ],
+      },
+      { role: 'editMenu' },
+      { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }, { role: 'toggleDevTools' }] },
+    ]),
+  );
   win.loadURL(url);
   return win;
 }
@@ -119,7 +161,7 @@ app.whenReady().then(async () => {
   });
   const library = new Library(location.libraryDir);
   await library.load();
-  services = createServices({ library, app, openGeneratorWindow, openExternal, shell, location, relaunch, chooseFolder });
+  services = createServices({ library, app, openGeneratorWindow, openExternal, shell, location, relaunch, chooseFolder, chooseImage, images });
   registerIpc(services, () => mainWindow);
   createMainWindow();
   app.on('activate', () => {

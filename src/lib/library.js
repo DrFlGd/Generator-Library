@@ -10,6 +10,7 @@
 //   <dataDir>/downloads/                  temporary archives
 //   <dataDir>/catalog.json                last catalog fetched from GitHub
 //   <dataDir>/runtimes/                   private runtimes such as Python (runtimes.js)
+//   <dataDir>/thumbnails/<id>.jpg         pictures you took of an app's window
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   checkUpdatesOnStart: true,
   keepVersions: 2, // older versions kept per app after an update, to switch back to
   resyncDays: 30, // suggest mirroring a site again once its copy is this old; 0 = never
+  theme: 'system', // system | light | dark
 };
 
 export function sourceKey(source) {
@@ -101,7 +103,7 @@ export function editCollections(collections, op, now = Date.now()) {
 }
 
 export function emptyState() {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {}, edits: {}, code: {} };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, installed: {}, sources: [], favorites: [], recent: [], runtimes: {}, hidden: [], removedSources: [], kept: {}, tagEdits: {}, collections: [], offlineMarks: {}, edits: {}, code: {}, thumbnails: {} };
 }
 
 export class Library {
@@ -110,6 +112,7 @@ export class Library {
     this.file = path.join(dataDir, 'library.json');
     this.appsDir = path.join(dataDir, 'apps');
     this.downloadsDir = path.join(dataDir, 'downloads');
+    this.thumbnailsDir = path.join(dataDir, 'thumbnails');
     this.state = emptyState();
   }
 
@@ -330,6 +333,26 @@ export class Library {
     const rest = this.state.removedSources.filter((k) => k.toLowerCase() !== lower);
     this.state.removedSources = removed ? [...rest, key] : rest;
     await this.save();
+  }
+
+  // A picture of a generator for its card: a JPEG in thumbnailsDir, recorded by
+  // file name so it moves with the library. null forgets it and deletes the file.
+  thumbnailFile(id) {
+    return path.join(this.thumbnailsDir, `${String(id).replace(/[^a-z0-9._-]/gi, '_')}.jpg`);
+  }
+
+  async setThumbnail(id, jpeg) {
+    const file = this.thumbnailFile(id);
+    if (jpeg) {
+      await fs.mkdir(this.thumbnailsDir, { recursive: true });
+      await fs.writeFile(file, jpeg);
+      this.state.thumbnails[id] = { file: path.basename(file), savedAt: new Date().toISOString() };
+    } else {
+      await fs.rm(file, { force: true });
+      delete this.state.thumbnails[id];
+    }
+    await this.save();
+    return this.state.thumbnails[id] ?? null;
   }
 
   async setHidden(id, hidden) {
