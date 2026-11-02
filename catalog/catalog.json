@@ -2786,10 +2786,12 @@
             "tags": [
               "hugging-face",
               "ai",
+              "3d-assets",
+              "3d-foundation-model",
               "3d-genai",
               "3d-generation",
               "3d-reconstruction",
-              "image-to-3d"
+              "generative-3d"
             ],
             "process": "3d-print",
             "category": "ai-3d",
@@ -4380,6 +4382,30 @@
                 "kind": "mirror",
                 "url": "https://3dmakerbench.com/",
                 "githubPagesFiles": false
+              }
+            ]
+          },
+          {
+            "id": "3dprintgenerator",
+            "name": "3D Print Generator",
+            "summary": "Slider generators for boxes, fitted cases, gears, screws and vent grilles, plus text to CAD, with paid STL export",
+            "description": "Makes: Custom boxes and storage bins; Fitted cases with lids, hinges and latches; Involute spur gears; Screws, nuts and washers; Vent grilles and mesh covers.\nBest for: Practical boxes, cases and hardware parts from one toolkit.\nPrice: Designing and preview are free. STL export needs a Google sign-in and credits from one-time packs: $14.99 for 300, $34.99 for 1,000, $79.99 for 2,500. 1 credit per STL export, 30 per Text to CAD generation; credits never expire.\nRuns on: Browser.",
+            "tags": [],
+            "process": "3d-print",
+            "category": "customizers",
+            "homepage": "https://3dprintgenerator.com/",
+            "listing": "https://skipthecad.com/generators/3dprintgenerator/",
+            "pricing": "freemium",
+            "account": true,
+            "exports": [
+              "stl"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://3dprintgenerator.com/",
+                "label": "Open online"
               }
             ]
           },
@@ -6075,7 +6101,7 @@
             "id": "orbitstudio-sky",
             "name": "OrbitStudio Sky",
             "summary": "A 3D-printable star map of the sky over any place and date, with a free STL",
-            "description": "Makes: Star map plates (rounded rectangle, rectangle, circle, hexagon); Optional desk stand; Raised lettering of your own words.\nBest for: Anniversary, birth and wedding gifts.\nPrice: The STL is free and needs no account. The multicolor 3MF costs one download credit per chart, which also covers its desk stand; Plus ($9.99 a month or $79 a year) includes unlimited star map 3MFs.\nRuns on: Browser.",
+            "description": "Makes: Star map plates (rounded rectangle, rectangle, circle, hexagon); Optional desk stand; Raised lettering of your own words.\nBest for: Anniversary, birth and wedding gifts.\nPrice: The STL is free and needs no account. The multicolor 3MF of one chart, desk stand included, costs $3 one time (making the same chart again downloads free); Plus ($9.99 a month or $79 a year) includes unlimited star map 3MFs.\nRuns on: Browser.",
             "tags": [
               "multicolor"
             ],
@@ -9722,6 +9748,38 @@
             "license": "BSD-2-Clause"
           },
           {
+            "id": "hypsos",
+            "name": "Hypsos",
+            "summary": "Free 3D map tiles of any place with terrain, streets, water, woods and buildings, as a color 3MF or STL",
+            "description": "Makes: Color 3D map tiles of any place; City maps with streets and buildings; Terrain relief tiles; Round, hexagon and heart map gifts.\nBest for: Colorful city and landscape tiles as gifts.\nPrice: Free, no account and no paid tier; donations through Buy Me a Coffee.\nRuns on: Browser.",
+            "tags": [
+              "multicolor"
+            ],
+            "process": "3d-print",
+            "category": "maps-terrain",
+            "homepage": "https://hypsos3d.com/",
+            "listing": "https://skipthecad.com/generators/hypsos/",
+            "pricing": "free",
+            "account": false,
+            "exports": [
+              "3mf",
+              "stl"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://hypsos3d.com/",
+                "label": "Open online"
+              },
+              {
+                "kind": "mirror",
+                "url": "https://hypsos3d.com/",
+                "githubPagesFiles": false
+              }
+            ]
+          },
+          {
             "id": "make3dmap",
             "name": "Make3DMap",
             "summary": "Frame a real place and download a mesh-checked, watertight terrain solid as 3MF or STL",
@@ -10000,8 +10058,8 @@
           {
             "id": "orbitstudio",
             "name": "OrbitStudio",
-            "summary": "Print any place on the Moon, Mars, Mercury, Venus, Vesta, Ceres, Pluto or Charon as a snap-together puzzle or ornament",
-            "description": "Makes: Moon and Mars terrain puzzles; Mercury and Venus terrain models; Crater and landing-site ornaments; Pluto and Charon terrain (the measured side); Vesta and Ceres terrain; Framed terrain with custom text; Wall-mounted terrain tiles.\nBest for: Space fans, science gifts and puzzle lovers.\nPrice: Generating and 3D preview are free, no account. Downloads need a plan: Plus $9.99 a month or $79 a year for unlimited downloads for personal use and gifts; Merchant $14.99 a month or $119 a year adds the right to sell prints. The campaign's one-time lifetime passes are still on sale as a MakerWorld late pledge.\nRuns on: Browser.",
+            "summary": "Print any place on the Moon, Mars, Pluto and nine more worlds as a snap-together puzzle or ornament",
+            "description": "Makes: Moon and Mars terrain puzzles; Mercury and Venus terrain models; Crater and landing-site ornaments; Pluto and Charon terrain (the measured side); Vesta, Ceres and Saturn's moons Mimas, Enceladus and Tethys; Jupiter in Hubble's colors; Framed terrain with custom text; Wall-mounted terrain tiles.\nBest for: Space fans, science gifts and puzzle lovers.\nPrice: Generating and 3D preview are free, no account. Downloads: one model for $4.99 (STL and multicolor 3MF, personal use), or Plus $9.99 a month or $79 a year for unlimited downloads for personal use and gifts; Merchant $14.99 a month or $119 a year adds the right to sell prints. The campaign's one-time lifetime passes are still on sale as a MakerWorld late pledge.\nRuns on: Browser.",
             "tags": [
               "multicolor"
             ],
@@ -10297,8 +10355,8 @@
           {
             "id": "terraprinter",
             "name": "TerraPrinter",
-            "summary": "Browser terrain maker with OSM features, hex tiles, puzzle and voxel styles",
-            "description": "Makes: Terrain models with buildings and roads; Hexagon terrain tiles; Terrain jigsaw puzzles; Voxel style landscapes; GPX route maps.\nBest for: Experimental terrain, hex tiles and map puzzles.\nPrice: Free, no paywalled exports; donations via Buy Me a Coffee.\nRuns on: Browser.",
+            "summary": "Terrain of any place on Earth and 22 other worlds, with buildings, puzzles, globes and 18 gift makers",
+            "description": "Makes: Terrain models with buildings and roads; Terrain of the Moon, Mars and 21 other worlds; Terrain jigsaw puzzles and hex tiles; Relief globes, lithophanes and Moon lamps; Map ornaments, keychains and race medals; Cookie cutters, molds and ball runs.\nBest for: Detailed city and terrain models, and map gifts.\nPrice: Free to make and download for personal use, gifts, schools and non-profits, with no account. From 1 November 2026, selling needs a yearly license: Maker $50 (up to $5,000 a year in sales), Shop $150 (up to $50,000) or Business $400 (unlimited). Files downloaded before 1 November 2026 keep their free commercial license.\nRuns on: Browser.",
             "tags": [
               "multicolor"
             ],
@@ -10306,13 +10364,14 @@
             "category": "maps-terrain",
             "homepage": "https://terraprinter.com/",
             "listing": "https://skipthecad.com/generators/terraprinter/",
-            "pricing": "free",
+            "pricing": "freemium",
             "account": false,
             "exports": [
               "stl",
               "3mf",
               "obj",
-              "glb"
+              "glb",
+              "svg"
             ],
             "openSource": false,
             "distributions": [
@@ -10320,11 +10379,6 @@
                 "kind": "web",
                 "url": "https://terraprinter.com/",
                 "label": "Open online"
-              },
-              {
-                "kind": "mirror",
-                "url": "https://terraprinter.com/",
-                "githubPagesFiles": false
               }
             ]
           },
@@ -11567,6 +11621,30 @@
             ]
           },
           {
+            "id": "focus-rings",
+            "name": "Focus Rings",
+            "summary": "Free follow focus gear for any camera lens, sized from its diameter, plus paid clamp rings and lens caps",
+            "description": "Makes: Follow focus gears for camera lenses; Focus rings with clamps or hard stops; Lens caps and rear lens caps; Camera body caps.\nBest for: Filmmakers who need a follow focus gear for one specific lens.\nPrice: The plain focus ring STL is free with no account or email; so are the Canon EF rear cap and a blank lens cap. Clamp rings and hard-stop rings are €14.90 (one Premium price for both options), and the other cap generators are paid.\nRuns on: Browser.",
+            "tags": [],
+            "process": "3d-print",
+            "category": "mechanical",
+            "homepage": "https://focusrings.at/free-focus-ring",
+            "listing": "https://skipthecad.com/generators/focus-rings/",
+            "pricing": "freemium",
+            "account": false,
+            "exports": [
+              "stl"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://focusrings.at/free-focus-ring",
+                "label": "Open online"
+              }
+            ]
+          },
+          {
             "id": "trinckle-follow-focus-gear",
             "name": "Follow Focus Gear Customizer by trinckle",
             "summary": "Closed-ring follow focus gears sized to your camera lens, downloaded as an STL",
@@ -11962,6 +12040,35 @@
               }
             ],
             "repo": "raushanraja/lithium-pack-designer"
+          },
+          {
+            "id": "lovcad",
+            "name": "Lovcad",
+            "summary": "AI text to CAD: describe a part in plain words and get a parametric model with real dimensions",
+            "description": "Makes: Brackets, flanges and housings; Gears and multi-part assemblies; Parametric parts with exact STEP; Lattices and sculptural printed parts.\nBest for: Functional parts with real dimensions, such as brackets and housings.\nPrice: New accounts get 100 permanent credits after email verification. Plans: Starter $20/month (2,000 credits), Pro $50, Studio $80, Max $120; one-time packs from $25 for 2,000 credits. Credits pay for AI requests, not a fixed number of models.\nRuns on: Browser.",
+            "tags": [],
+            "process": "3d-print",
+            "category": "mechanical",
+            "homepage": "https://lovcad.com/ai-cad-generator",
+            "listing": "https://skipthecad.com/generators/lovcad/",
+            "pricing": "paid",
+            "account": true,
+            "exports": [
+              "step",
+              "stl",
+              "3mf",
+              "obj",
+              "glb",
+              "svg"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://lovcad.com/ai-cad-generator",
+                "label": "Open online"
+              }
+            ]
           },
           {
             "id": "measuring-cup-spoon-generator",
@@ -14561,6 +14668,33 @@
             ]
           },
           {
+            "id": "minimarbleruns",
+            "name": "MiniMarbleRuns",
+            "summary": "Design a marble run that prints without supports, and test it in a physics simulator first",
+            "description": "Makes: Spiral tower marble runs; Zigzag drop walls; Freeform aqueduct runs with tunnels; Marble run test pieces.\nBest for: A desk marble run sized to your printer and marbles.\nPrice: Free with no account: every run style and shape, the simulator and STL download. Pro is $12 once for multicolor 3MF, a ZIP of parts, 2 to 4 racing lanes, tube tracks and label text. Commercial is $25 a year to sell prints.\nRuns on: Browser.",
+            "tags": [
+              "multicolor"
+            ],
+            "process": "3d-print",
+            "category": "puzzles-games",
+            "homepage": "https://minimarbleruns.com/",
+            "listing": "https://skipthecad.com/generators/minimarbleruns/",
+            "pricing": "freemium",
+            "account": false,
+            "exports": [
+              "stl",
+              "3mf"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://minimarbleruns.com/",
+                "label": "Open online"
+              }
+            ]
+          },
+          {
             "id": "modelador3d-jigsaw-puzzle",
             "name": "Modelador 3D Jigsaw Puzzle Generator",
             "summary": "Free custom jigsaw puzzle generator with 4 to 600 pieces, printer clearance, a tray and a printable cover",
@@ -15156,6 +15290,33 @@
             ]
           },
           {
+            "id": "terrapuzzle",
+            "name": "TerraPuzzle",
+            "summary": "Turn any place on Earth, or 22 other worlds, into a 3D-printable terrain jigsaw puzzle",
+            "description": "Makes: Terrain jigsaw puzzles; Puzzles of the Moon, Mars and other worlds; Puzzle trays with numbered slots; Magnetic fridge puzzles.\nBest for: A jigsaw puzzle of a favorite mountain, island or city.\nPrice: Free, no account. The site has no pricing or license page; its sister site TerraPrinter needs a paid license for selling from 1 November 2026.\nRuns on: Browser.",
+            "tags": [
+              "multicolor"
+            ],
+            "process": "3d-print",
+            "category": "puzzles-games",
+            "homepage": "https://terrapuzzle.com/",
+            "listing": "https://skipthecad.com/generators/terrapuzzle/",
+            "pricing": "freemium",
+            "account": false,
+            "exports": [
+              "stl",
+              "3mf"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://terrapuzzle.com/",
+                "label": "Open online"
+              }
+            ]
+          },
+          {
             "id": "titancraft",
             "name": "TitanCraft",
             "summary": "Build and pose custom hero, monster and mech miniatures, then export them as STL",
@@ -15693,8 +15854,8 @@
           {
             "id": "privqr-qr-to-stl",
             "name": "PrivQR QR Code to STL",
-            "summary": "Scan-checked QR code plaques, tags and labels as STL, built from a link or text",
-            "description": "Makes: Raised QR code plaques; Recessed QR nameplates; QR product tags; QR device labels; Recessed QR plates to combine with your own models.\nBest for: QR plaques, product tags and labels that must scan reliably.\nPrice: Free with no account; the site shows ads. The terms describe no paid tiers and the /pricing page returns 404.\nRuns on: Browser.",
+            "summary": "Scan-checked QR code and barcode plates as STL, built in your browser from a link, text or product number",
+            "description": "Makes: Raised QR code plaques; Recessed QR nameplates; QR product tags; QR device labels; Recessed QR plates to combine with your own models; Code 128, EAN-13 and UPC-A barcode plates.\nBest for: QR plaques, product tags and labels that must scan reliably.\nPrice: Free with no account; the site shows ads. The terms describe no paid tiers and the /pricing page returns 404.\nRuns on: Browser.",
             "tags": [],
             "process": "3d-print",
             "category": "codes",
@@ -16650,6 +16811,33 @@
               {
                 "kind": "web",
                 "url": "https://cuttle.xyz/templates/3d-print",
+                "label": "Open online"
+              }
+            ]
+          },
+          {
+            "id": "design-a-sign",
+            "name": "Design a Sign",
+            "summary": "Browser sign editor that sells the finished design as a color 3MF, an SVG or a printed PETG sign",
+            "description": "Makes: House and door signs; Name and business signs; Shaped signs such as stars, hearts and badges; Signs with mounting or corner holes.\nBest for: Multicolor house, door and name signs.\nPrice: Designing is free with no account. Files are paid per design: 3MF $5.00, SVG $0.99. A printed and shipped PETG sign starts at $19.99 to $24.99 plus shipping, depending on size.\nRuns on: Browser.",
+            "tags": [
+              "multicolor"
+            ],
+            "process": "3d-print",
+            "category": "signs-text",
+            "homepage": "https://designasign.co/",
+            "listing": "https://skipthecad.com/generators/design-a-sign/",
+            "pricing": "freemium",
+            "account": false,
+            "exports": [
+              "3mf",
+              "svg"
+            ],
+            "openSource": false,
+            "distributions": [
+              {
+                "kind": "web",
+                "url": "https://designasign.co/",
                 "label": "Open online"
               }
             ]
