@@ -45,10 +45,14 @@ contextBridge.exposeInMainWorld('library', {
   moveData: invoke('library:move'),
   installRuntime: invoke('runtimes:install'),
   removeRuntime: invoke('runtimes:remove'),
+  updateWebMirror: invoke('webmirror:update'),
+  captureThumbnail: invoke('thumbnail:capture'),
+  chooseThumbnail: invoke('thumbnail:choose'),
+  removeThumbnail: invoke('thumbnail:remove'),
   jobs: invoke('jobs:list'),
   clearJobs: invoke('jobs:clear'),
   on(channel, handler) {
-    const allowed = ['jobs:changed', 'catalog:changed'];
+    const allowed = ['jobs:changed', 'catalog:changed', 'windows:changed'];
     if (!allowed.includes(channel)) throw new Error(`unknown channel ${channel}`);
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on(channel, listener);

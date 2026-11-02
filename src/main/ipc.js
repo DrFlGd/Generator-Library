@@ -38,6 +38,10 @@ const CHANNELS = {
   'library:move': 'moveData',
   'runtimes:install': 'installRuntime',
   'runtimes:remove': 'removeRuntime',
+  'webmirror:update': 'updateWebMirror',
+  'thumbnail:capture': 'captureThumbnail',
+  'thumbnail:choose': 'chooseThumbnail',
+  'thumbnail:remove': 'removeThumbnail',
   'jobs:list': 'jobs',
   'jobs:clear': 'clearJobs',
 };

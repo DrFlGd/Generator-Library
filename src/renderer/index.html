@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: https: data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
   <title>Generator Library</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">▣</span>
+      <svg class="brand-mark" viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 19V7h6v5H6M14 7h6v12h-6z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 6h3M1.5 20h3M21.5 6h3M21.5 20h3" stroke="currentColor" stroke-width="1.4"/></svg>
       <span class="brand-name">Generator Library</span>
     </div>
     <label class="search">
@@ -59,7 +59,28 @@
 
     <main class="content">
       <div id="status" class="status" hidden></div>
-      <p id="result-count" class="muted result-count"></p>
+      <div id="project-filter" class="notice-bar" hidden></div>
+      <div class="toolbar">
+        <h2 class="section-head"><span id="result-count" class="result-count"></span></h2>
+        <label class="sort">
+          <span>Sort</span>
+          <select id="sort">
+            <option value="default">Catalog order</option>
+            <option value="name">Name, A to Z</option>
+            <option value="name-desc">Name, Z to A</option>
+            <option value="used">Last opened</option>
+            <option value="installed">Last installed</option>
+            <option value="added">Last added by you</option>
+            <option value="category">Category</option>
+            <option value="favorites">Favorites first</option>
+          </select>
+        </label>
+        <div class="seg" id="views" role="group" aria-label="View">
+          <button type="button" data-view="cards" title="Cards with details">Cards</button>
+          <button type="button" data-view="thumbs" title="Large pictures">Thumbnails</button>
+          <button type="button" data-view="list" title="One line each">List</button>
+        </div>
+      </div>
       <div id="grid" class="grid" aria-live="polite"></div>
       <div id="empty" class="empty" hidden>
         <h2>Nothing matches</h2>
@@ -76,6 +97,7 @@
         <p id="detail-facts" class="detail-facts"></p>
       </div>
       <div class="row row-tight">
+        <button id="detail-thumb" class="btn" type="button" hidden>Take thumbnail</button>
         <button id="detail-fav" class="btn fav-btn" type="button"></button>
         <button id="detail-edit" class="btn" type="button">Edit</button>
         <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
@@ -116,7 +138,10 @@
       <div id="edit-add-offline" class="row row-tight wrap"></div>
       <p id="edit-error" class="dist-error" hidden></p>
       <div class="edit-foot">
-        <button id="edit-reset" class="btn btn-small" type="button">Go back to the catalog's version</button>
+        <div class="row row-tight">
+          <button id="edit-reset" class="btn btn-small" type="button">Go back to the catalog's version</button>
+          <button id="edit-delete" class="btn btn-small btn-danger" type="button" hidden>Remove from library</button>
+        </div>
         <div class="row row-tight">
           <button id="edit-cancel" class="btn" type="button">Cancel</button>
           <button class="btn btn-primary" type="submit">Save</button>
@@ -125,11 +150,18 @@
     </form>
   </dialog>
 
-  <dialog id="settings" class="dialog">
+  <dialog id="settings" class="dialog settings">
     <form method="dialog" class="dialog-head">
       <h2>Settings</h2>
       <button class="btn btn-quiet" value="close" aria-label="Close">✕</button>
     </form>
+    <div class="tabs" role="tablist" id="settings-tabs">
+      <button type="button" role="tab" data-tab="general">General</button>
+      <button type="button" role="tab" data-tab="sources">Your sources <span class="n" id="sources-count"></span></button>
+      <button type="button" role="tab" data-tab="deps">Dependencies</button>
+      <button type="button" role="tab" data-tab="folder">Library folder</button>
+    </div>
+    <div class="tab-panel" data-panel="general">
     <form id="settings-form" class="settings-form">
       <label>
         <span>GitHub token</span>
@@ -151,6 +183,14 @@
         <input name="webmirrorHome" type="text" placeholder="Inside the library folder" />
       </label>
       <label>
+        <span>Theme</span>
+        <select name="theme">
+          <option value="system">Same as the system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <label>
         <span>Older versions to keep</span>
         <input name="keepVersions" type="number" min="0" max="20" step="1" />
         <small>How many earlier versions of each app stay installed after an update, to switch back to under Versions. 0 keeps only the newest.</small>
@@ -168,21 +208,30 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
-    <section class="settings-sources">
-      <h3>Library folder</h3>
-      <p class="muted">Installed apps, their saved data, Python, Node.js and mirrors all live here. Move it to an external drive to take the whole library with you.</p>
-      <div id="data-location"></div>
-    </section>
-    <section class="settings-sources">
-      <h3>Dependencies</h3>
-      <p class="muted">Installed privately for the library, never system-wide. Mirroring a site needs Python and WebMirror; building an app from its source needs Node.js.</p>
-      <ul id="runtimes" class="sources"></ul>
-    </section>
-    <section class="settings-sources">
-      <h3>WebMirror snapshots</h3>
-      <p class="muted">Sites already mirrored with WebMirror on this machine.</p>
-      <ul id="snapshots-list" class="sources"></ul>
-    </section>
+    </div>
+    <div class="tab-panel" data-panel="sources" hidden>
+      <p class="muted">Repositories and websites you added yourself. Show one to see its generators in the library, or remove it.</p>
+      <ul id="my-sources" class="sources my-sources"></ul>
+    </div>
+    <div class="tab-panel" data-panel="deps" hidden>
+      <section class="settings-sources">
+        <h3>Dependencies</h3>
+        <p class="muted">Installed privately for the library, never system-wide. Mirroring a site needs Python and WebMirror; building an app from its source needs Node.js.</p>
+        <ul id="runtimes" class="sources"></ul>
+      </section>
+      <section class="settings-sources">
+        <h3>WebMirror snapshots</h3>
+        <p class="muted">Sites already mirrored with WebMirror on this machine.</p>
+        <ul id="snapshots-list" class="sources"></ul>
+      </section>
+    </div>
+    <div class="tab-panel" data-panel="folder" hidden>
+      <section class="settings-sources">
+        <h3>Library folder</h3>
+        <p class="muted">Installed apps, their saved data, Python, Node.js and mirrors all live here. Move it to an external drive to take the whole library with you.</p>
+        <div id="data-location"></div>
+      </section>
+    </div>
   </dialog>
 
   <dialog id="manage" class="dialog manage">

@@ -86,6 +86,8 @@ test('a Python set in Settings is used when it can import, and never modified', 
 
   const failing = createRuntimes({ library, spawnImpl: () => fakeChild({ code: 1 }), download: () => assert.fail('no download') });
   await assert.rejects(failing.ensure([WEBMIRROR_REQUIREMENT]), /cannot import webmirror/);
+  // Update now leaves your own Python alone.
+  await assert.rejects(runtimes.refresh(WEBMIRROR_REQUIREMENT), /does not change the Python set in Settings/);
 });
 
 test('a package that follows a branch is due again after its refresh time', () => {
@@ -161,6 +163,14 @@ test('the managed Python is downloaded, checksummed, unpacked and given its pack
   const kept = await offline.ensure([WEBMIRROR_REQUIREMENT], { log: (l) => offlineLog.push(l), progress: () => {} });
   assert.equal(kept.python, python);
   assert.ok(offlineLog.some((l) => /Could not update webmirror; using the installed copy/.test(l)));
+
+  // Update now (Settings): reinstalls a copy installed a minute ago, and a failure is an error.
+  library.state.runtimes.python.packages[spec] = new Date(Date.now() - 60000).toISOString();
+  const forced = [];
+  await createRuntimes({ library, fetchImpl, download, spawnImpl: (cmd, args) => (forced.push(args), fakeChild({ code: 0 })) }).refresh(WEBMIRROR_REQUIREMENT);
+  assert.ok(forced.some((args) => args.includes('--force-reinstall') && args.includes(spec)), 'reinstalled although it was new');
+  assert.equal(runtimes.status().python.webmirror, library.state.runtimes.python.packages[spec]);
+  await assert.rejects(createRuntimes({ library, fetchImpl, download, spawnImpl: () => fakeChild({ code: 1 }) }).refresh(WEBMIRROR_REQUIREMENT), /failed/);
 
   await runtimes.remove();
   assert.equal(runtimes.status().python.managed, null);

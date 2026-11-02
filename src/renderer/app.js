@@ -54,7 +54,28 @@ const state = {
   busy: new Set(),
   detailId: null,
   versions: new Map(), // `${id}/${distKey}` -> { loading, list, error } while its version list is open
+  project: '', // a source's key: show only its generators (Settings > Your sources > Show)
+  sort: pref('sort', 'default'),
+  view: pref('view', 'cards'), // cards | thumbs | list
+  settingsTab: 'general',
 };
+
+// Display preferences stay in this window's storage; they are not library data.
+function pref(key, fallback) {
+  try {
+    return localStorage.getItem(`genlib.${key}`) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function setPref(key, value) {
+  try {
+    localStorage.setItem(`genlib.${key}`, value);
+  } catch {
+    /* storage off: the choice lasts until the window closes */
+  }
+}
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...children) => {
@@ -146,11 +167,80 @@ async function runSearch() {
   if (state.collection && !shown) state.collection = '';
   if (shown) ids = ids.filter((id) => shown.ids.includes(id));
   const hidden = new Set(state.data.hidden ?? []);
-  ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
+  const project = projectByKey(state.project);
+  if (state.project && !project) state.project = '';
+  // One source's generators are all shown, hidden ones too: you asked for that source.
+  if (project) ids = ids.filter((id) => generatorById(id)?.source === project.key);
+  else ids = state.show === 'hidden' ? ids.filter((id) => hidden.has(id)) : ids.filter((id) => !hidden.has(id));
   state.base = ids;
-  state.results = ids.filter((id) => matchesFilters(generatorById(id)));
+  state.results = sortIds(ids.filter((id) => matchesFilters(generatorById(id))));
+  renderProjectFilter();
   renderFilters();
   renderGrid();
+}
+
+function projectByKey(key) {
+  return key ? (state.data?.projects ?? []).find((p) => p.key === key && !p.removed) ?? null : null;
+}
+
+function renderProjectFilter() {
+  const box = $('project-filter');
+  const project = projectByKey(state.project);
+  box.hidden = !project;
+  if (!project) return;
+  box.replaceChildren(
+    el('span', {}, 'Showing ', el('strong', {}, project.name), el('span', { class: 'muted' }, ` · ${project.key}`)),
+    el('button', { class: 'btn btn-small', type: 'button', onclick: () => ((state.project = ''), runSearch()) }, 'Show everything'),
+  );
+}
+
+// Show one of your sources in the library: its generators alone, whatever else was chosen.
+function showProject(key) {
+  state.project = key;
+  state.query = '';
+  $('search').value = '';
+  state.show = 'all';
+  state.collection = '';
+  for (const f of FACETS) state.filters[f.key].clear();
+  for (const d of document.querySelectorAll('dialog[open]')) d.close();
+  renderFacets();
+  runSearch();
+}
+
+// ───────────────────────────────── sorting ─────────────────────────────────
+
+// The newest time in a list of ISO dates, as a number (0 when none).
+const newest = (dates) => Math.max(0, ...dates.map((d) => Date.parse(d ?? '') || 0));
+
+function sortIds(ids) {
+  const by = state.sort;
+  if (by === 'default') return ids;
+  const items = ids.map((id, i) => ({ id, i, g: generatorById(id) })).filter((x) => x.g);
+  const name = (x) => x.g.name.toLocaleLowerCase();
+  const byName = (a, b) => name(a).localeCompare(name(b));
+  let key = null; // larger first, then by name
+  if (by === 'used') {
+    const recent = state.data.recent ?? [];
+    key = (x) => (recent.includes(x.id) ? recent.length - recent.indexOf(x.id) : 0);
+  } else if (by === 'installed') {
+    key = (x) => newest([...installedRecords(x.id).map((r) => r.installedAt), state.data.code?.[x.id]?.savedAt]);
+  } else if (by === 'added') {
+    const added = new Map((state.data.projects ?? []).filter((p) => p.origin === 'yours').map((p) => [p.key, Date.parse(p.addedAt || '') || 1]));
+    key = (x) => added.get(x.g.source) ?? 0;
+  } else if (by === 'favorites') {
+    key = (x) => (state.data.favorites.includes(x.id) ? 1 : 0);
+  }
+  items.sort((a, b) => {
+    if (by === 'name-desc') return byName(b, a);
+    if (by === 'category') {
+      const ca = a.g.category ? CATEGORY_LABELS[a.g.category] ?? a.g.category : '\uffff';
+      const cb = b.g.category ? CATEGORY_LABELS[b.g.category] ?? b.g.category : '\uffff';
+      return ca.localeCompare(cb) || byName(a, b);
+    }
+    if (key) return key(b) - key(a) || (by === 'favorites' ? a.i - b.i : byName(a, b));
+    return byName(a, b);
+  });
+  return items.map((x) => x.id);
 }
 
 // Online: opens in a browser window. Works offline: has a way to run without
@@ -472,14 +562,93 @@ function iconFor(g) {
   return (g.name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
 }
 
-function renderCard(g) {
+// The picture on a card: one you took of the app, else the catalog's first screenshot.
+function pictureOf(g) {
+  const own = state.data.thumbnails?.[g.id];
+  if (own) return own;
+  const shot = g.screenshots?.[0];
+  if (!shot) return '';
+  return /^https?:/.test(shot) ? shot : g.repo ? `https://raw.githubusercontent.com/${g.repo}/HEAD/${shot.replace(/^\/+/, '')}` : '';
+}
+
+function pictureBox(g, cls) {
+  const src = pictureOf(g);
+  const letter = el('span', { class: 'picture-letter' }, (g.name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase());
+  if (!src) return el('div', { class: `${cls} is-empty` }, letter);
+  const img = el('img', { src, alt: '', loading: 'lazy', decoding: 'async' });
+  const box = el('div', { class: cls }, img);
+  img.addEventListener('error', () => box.replaceChildren(letter), { once: true });
+  box.classList.toggle('is-yours', Boolean(state.data.thumbnails?.[g.id]));
+  return box;
+}
+
+function cardBadges(g) {
   const installed = installedRecords(g.id);
-  const update = hasUpdate(g.id);
-  const fav = state.data.favorites.includes(g.id);
   const kinds = [...new Set(g.distributions.map((d) => d.kind))];
-  const card = el(
+  return [
+    ...kinds.map((k) => {
+      const mark = k === 'mirror' ? offlineMark(g.id) : '';
+      if (!mark) return el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k);
+      return el('span', { class: `badge badge-kind ${mark === 'works' ? 'is-works' : 'is-broken'}`, title: mark === 'works' ? 'You marked the mirror as working offline' : 'You marked the mirror as needing the internet' }, `Mirror ${mark === 'works' ? '✓' : '✗'}`);
+    }),
+    installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
+    state.data.code?.[g.id] ? el('span', { class: 'badge', title: "A copy of the repository's files is saved on this computer" }, 'Source saved') : null,
+    hasUpdate(g.id) ? el('span', { class: 'badge badge-update' }, 'Update') : null,
+    needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
+    g.pricing && g.pricing !== 'free' ? el('span', { class: 'badge badge-price' }, PRICING_LABELS[g.pricing]) : null,
+    g.account ? el('span', { class: 'badge badge-kind', title: 'Downloading needs an account on the site' }, 'Sign-up') : null,
+  ].filter(Boolean);
+}
+
+function favButton(g) {
+  const fav = state.data.favorites.includes(g.id);
+  return el(
+    'button',
+    {
+      class: `fav ${fav ? 'is-on' : ''}`,
+      type: 'button',
+      title: fav ? 'Remove from favorites' : 'Add to favorites',
+      'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
+      'aria-pressed': String(fav),
+      onclick: (e) => {
+        e.stopPropagation();
+        setFavorite(g.id, !fav);
+      },
+    },
+    fav ? '★' : '☆',
+  );
+}
+
+// Thumbnails view: the picture large, the name under it.
+function renderThumb(g) {
+  return el(
+    'article',
+    { class: 'thumb', tabindex: '0', role: 'button', title: g.summary || g.name, onclick: () => openDetail(g.id), onkeydown: (e) => e.key === 'Enter' && openDetail(g.id) },
+    pictureBox(g, 'thumb-picture'),
+    el('div', { class: 'thumb-name' }, el('span', {}, g.name), installedRecords(g.id).length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null, hasUpdate(g.id) ? el('span', { class: 'badge badge-update' }, 'Update') : null),
+    favButton(g),
+  );
+}
+
+// List view: one row each, in a table.
+function renderListRow(g) {
+  const category = g.category ? CATEGORY_LABELS[g.category] ?? titleCase(g.category) : '';
+  return el(
+    'tr',
+    { class: 'list-row', tabindex: '0', onclick: () => openDetail(g.id), onkeydown: (e) => e.key === 'Enter' && openDetail(g.id) },
+    el('td', { class: 'list-fav' }, favButton(g)),
+    el('td', {}, el('div', { class: 'name' }, g.name), el('div', { class: 'sub' }, g.summary || g.description || '')),
+    el('td', { class: 'sub' }, category),
+    el('td', { class: 'sub' }, g.repo || g.source || ''),
+    el('td', {}, el('div', { class: 'list-badges' }, cardBadges(g))),
+  );
+}
+
+function renderCard(g) {
+  return el(
     'article',
     { class: 'card', tabindex: '0', role: 'button', onclick: () => openDetail(g.id), onkeydown: (e) => e.key === 'Enter' && openDetail(g.id) },
+    pictureOf(g) ? pictureBox(g, 'card-picture') : null,
     el(
       'div',
       { class: 'card-head' },
@@ -488,38 +657,9 @@ function renderCard(g) {
     ),
     el('p', { class: 'card-summary' }, g.summary || g.description || ''),
     el('div', { class: 'tags' }, g.tags.slice(0, 5).map((t) => el('span', { class: 'tag' }, t))),
-    el(
-      'div',
-      { class: 'card-foot' },
-      kinds.map((k) => {
-        const mark = k === 'mirror' ? offlineMark(g.id) : '';
-        if (!mark) return el('span', { class: 'badge badge-kind' }, KIND_LABELS[k] ?? k);
-        return el('span', { class: `badge badge-kind ${mark === 'works' ? 'is-works' : 'is-broken'}`, title: mark === 'works' ? 'You marked the mirror as working offline' : 'You marked the mirror as needing the internet' }, `Mirror ${mark === 'works' ? '✓' : '✗'}`);
-      }),
-      installed.length ? el('span', { class: 'badge badge-installed' }, 'Installed') : null,
-      state.data.code?.[g.id] ? el('span', { class: 'badge', title: "A copy of the repository's files is saved on this computer" }, 'Source saved') : null,
-      update ? el('span', { class: 'badge badge-update' }, 'Update') : null,
-      needsResync(g.id) ? el('span', { class: 'badge badge-resync', title: 'This offline copy is old; the site may have changed since' }, 'Resync') : null,
-      g.pricing && g.pricing !== 'free' ? el('span', { class: 'badge badge-price' }, PRICING_LABELS[g.pricing]) : null,
-      g.account ? el('span', { class: 'badge badge-kind', title: 'Downloading needs an account on the site' }, 'Sign-up') : null,
-    ),
-    el(
-      'button',
-      {
-        class: `fav ${fav ? 'is-on' : ''}`,
-        type: 'button',
-        title: fav ? 'Remove from favorites' : 'Add to favorites',
-        'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
-        'aria-pressed': String(fav),
-        onclick: (e) => {
-          e.stopPropagation();
-          setFavorite(g.id, !fav);
-        },
-      },
-      fav ? '★' : '☆',
-    ),
+    el('div', { class: 'card-foot' }, cardBadges(g)),
+    favButton(g),
   );
-  return card;
 }
 
 async function setOfflineMark(id, mark) {
@@ -549,9 +689,25 @@ async function setFavorite(id, favorite) {
 function renderGrid() {
   const grid = $('grid');
   const items = state.results.map(generatorById).filter(Boolean);
-  grid.replaceChildren(...items.map(renderCard));
+  grid.className = `grid view-${state.view}`;
+  if (state.view === 'list') {
+    grid.replaceChildren(
+      items.length
+        ? el(
+            'table',
+            { class: 'list' },
+            el('thead', {}, el('tr', {}, el('th', { class: 'list-fav' }, ''), el('th', {}, 'Name'), el('th', {}, 'Category'), el('th', {}, 'Source'), el('th', {}, 'Status'))),
+            el('tbody', {}, items.map(renderListRow)),
+          )
+        : '',
+    );
+  } else {
+    grid.replaceChildren(...items.map(state.view === 'thumbs' ? renderThumb : renderCard));
+  }
   $('empty').hidden = items.length > 0;
-  $('result-count').textContent = items.length ? `${items.length} generator${items.length === 1 ? '' : 's'}` : '';
+  $('result-count').textContent = items.length ? `${items.length} generator${items.length === 1 ? '' : 's'}` : 'No generators';
+  $('sort').value = state.sort;
+  for (const b of $('views').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.view === state.view));
 }
 
 // ───────────────────────────────── detail ─────────────────────────────────
@@ -829,6 +985,7 @@ function renderDetail() {
     g.edited ? el('span', {}, ' · ', el('button', { class: 'link', type: 'button', onclick: () => openEdit(g.id) }, 'edited by you')) : null,
   ));
   $('detail-edit').onclick = () => openEdit(g.id);
+  renderThumbButton(g);
   const hidden = (state.data.hidden ?? []).includes(g.id);
   $('detail-hide').textContent = hidden ? 'Show in library' : 'Hide from library';
   $('detail-hide').onclick = async () => {
@@ -837,6 +994,56 @@ function renderDetail() {
     await runSearch();
     renderDetail();
   };
+}
+
+// Take thumbnail: a picture of the generator's open window becomes its card
+// picture. Shown while one of its windows is open (the window's own Library
+// menu, Ctrl+Shift+T, does the same). Its menu here also picks a file or
+// removes the picture.
+function renderThumbButton(g) {
+  const button = $('detail-thumb');
+  const open = (state.data.openWindows ?? []).includes(g.id);
+  const own = Boolean(state.data.thumbnails?.[g.id]);
+  button.hidden = false;
+  button.textContent = open ? (own ? 'Retake thumbnail' : 'Take thumbnail') : own ? 'Thumbnail ▾' : 'Add thumbnail ▾';
+  button.title = open ? "Use what the generator's window shows now as the picture on its card (Ctrl+Shift+T in that window)" : 'Open the generator to take a picture of it, or choose a picture file';
+  button.onclick = async () => {
+    if (open) return thumbAction('captureThumbnail', g, 'Thumbnail saved');
+    thumbMenu(g, button);
+  };
+}
+
+function thumbMenu(g, anchor) {
+  document.querySelector('.menu')?.remove();
+  const own = Boolean(state.data.thumbnails?.[g.id]);
+  const close = () => menu.remove();
+  const item = (label, fn) => el('button', { type: 'button', onclick: () => (close(), fn()) }, label);
+  const menu = el(
+    'div',
+    { class: 'menu', role: 'menu' },
+    el('div', { class: 'menu-head' }, 'Picture on its card'),
+    el('p', { class: 'menu-note' }, 'Open the generator, set it up the way you want it pictured, then use Take thumbnail here or Ctrl+Shift+T in its window.'),
+    item('Choose a picture file…', () => thumbAction('chooseThumbnail', g)),
+    own ? item('Remove the picture', () => thumbAction('removeThumbnail', g, 'Thumbnail removed')) : null,
+  );
+  const r = anchor.getBoundingClientRect();
+  const host = anchor.closest('dialog') ?? document.body;
+  const hr = host.getBoundingClientRect();
+  menu.style.top = `${r.bottom - hr.top + host.scrollTop + 4}px`;
+  menu.style.left = `${Math.max(8, r.right - hr.left - 300)}px`;
+  host.append(menu);
+  setTimeout(() => document.addEventListener('click', (e) => !menu.contains(e.target) && close(), { once: true }), 0);
+}
+
+async function thumbAction(name, g, done = '') {
+  try {
+    state.data = await call(name, { id: g.id });
+    if (done) setStatus(`${g.name}: ${done}`, 'good');
+  } catch (error) {
+    setStatus(`${g.name}: ${error.message}`, 'error');
+  }
+  await runSearch();
+  if ($('detail').open) renderDetail();
 }
 
 // Tags in the detail view: × removes one, the box adds one (Enter or comma),
@@ -967,6 +1174,10 @@ function openEdit(id) {
   $('edit-title').textContent = `Edit ${g.name}`;
   $('edit-error').hidden = true;
   $('edit-reset').hidden = !g.edited;
+  // Only what you added yourself can be deleted; catalog projects are hidden or removed under Manage.
+  const project = (state.data.projects ?? []).find((p) => p.key === g.source && p.origin === 'yours');
+  $('edit-delete').hidden = !project;
+  $('edit-delete').onclick = () => project && removeMySource(project, () => $('edit').close());
   renderEdit();
   const dialog = $('edit');
   if (!dialog.open) dialog.showModal();
@@ -1114,6 +1325,9 @@ function renderSettings() {
   form.checkUpdatesOnStart.checked = Boolean(s.checkUpdatesOnStart);
   form.keepVersions.value = String(s.keepVersions ?? 2);
   form.resyncDays.value = String(s.resyncDays ?? 30);
+  form.theme.value = s.theme || 'system';
+  renderSettingsTabs();
+  renderMySources();
   renderRuntimes();
   renderDataLocation();
   call('webmirrorSnapshots')
@@ -1127,6 +1341,49 @@ function renderSettings() {
       if (!snaps.length) ul.replaceChildren(el('li', { class: 'muted' }, 'No WebMirror snapshots found'));
     })
     .catch(() => {});
+}
+
+function renderSettingsTabs() {
+  for (const b of $('settings-tabs').querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === state.settingsTab));
+  for (const panel of $('settings').querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== state.settingsTab;
+  const mine = (state.data.projects ?? []).filter((p) => p.origin === 'yours').length;
+  $('sources-count').textContent = mine ? String(mine) : '';
+}
+
+$('settings-tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-tab]');
+  if (!tab) return;
+  state.settingsTab = tab.dataset.tab;
+  renderSettingsTabs();
+});
+
+// Settings > Your sources: what you added by link, newest first.
+function renderMySources() {
+  const mine = (state.data.projects ?? []).filter((p) => p.origin === 'yours').sort((a, b) => (Date.parse(b.addedAt || '') || 0) - (Date.parse(a.addedAt || '') || 0));
+  const list = $('my-sources');
+  if (!mine.length) {
+    list.replaceChildren(el('li', { class: 'muted' }, 'Nothing added yet. Add a GitHub repository or any website under Manage.'));
+    return;
+  }
+  list.replaceChildren(
+    ...mine.map((p) => {
+      const installed = p.generators.filter((g) => g.installed).length;
+      const facts = [p.kind === 'link' ? 'Website' : 'GitHub repository', `${p.generators.length} generator${p.generators.length === 1 ? '' : 's'}`, installed ? `${installed} installed` : '', p.addedAt ? `added ${new Date(p.addedAt).toLocaleDateString()}` : ''].filter(Boolean);
+      const single = p.generators.length === 1 ? p.generators[0] : null;
+      return el(
+        'li',
+        { class: 'my-source' },
+        el('div', { class: 'my-source-info' }, el('strong', {}, p.name), el('div', { class: 'mono-sub' }, p.key), el('div', { class: 'muted small' }, facts.join(' · '))),
+        el(
+          'div',
+          { class: 'row row-tight' },
+          el('button', { class: 'btn btn-small btn-primary', type: 'button', disabled: !p.generators.length, title: 'Show its generators in the library', onclick: () => showProject(p.key) }, 'Show'),
+          single ? el('button', { class: 'btn btn-small', type: 'button', title: 'Its page: ways to run it, versions, tags', onclick: () => (showProject(p.key), openDetail(single.id)) }, 'Open page') : null,
+          el('button', { class: 'btn btn-small btn-danger', type: 'button', onclick: () => removeMySource(p) }, 'Remove'),
+        ),
+      );
+    }),
+  );
 }
 
 const LOCATION_NOTES = {
@@ -1172,6 +1429,20 @@ function renderRuntimes() {
   if (python.configured) line = el('span', {}, 'Using your Python: ', el('code', {}, python.configured));
   else if (python.managed) line = el('span', {}, `Python ${python.managed.version}`, python.managed.packages.length ? ` with ${python.managed.packages.map((p) => p.split(/[\s@[]/)[0]).join(', ')}` : '', el('small', { class: 'muted' }, ` · ${python.managed.dir}`));
   else line = el('span', { class: 'muted' }, `Not installed. Python ${python.build} downloads automatically the first time a generator needs it.`);
+  // WebMirror follows its main branch: it refreshes itself once a day when a
+  // mirror needs it, and Update now gets the newest at once.
+  const wmAt = python.webmirror;
+  const webmirror =
+    python.configured
+      ? null
+      : el(
+          'li',
+          {},
+          wmAt
+            ? el('span', {}, 'WebMirror', el('small', { class: 'muted' }, ` · installed ${new Date(wmAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} from its main branch`))
+            : el('span', { class: 'muted' }, 'WebMirror is not installed. It installs with Python the first time a site is mirrored.'),
+          el('div', { class: 'row row-tight' }, el('button', { class: 'btn btn-small', type: 'button', disabled: running, title: 'Install the newest WebMirror from GitHub now', onclick: () => call('updateWebMirror').then(() => setStatus('WebMirror is up to date', 'good')).catch((e) => setStatus(e.message, 'error')).finally(() => reloadState()) }, wmAt ? 'Update now' : 'Install now')),
+        );
   // replaceChildren writes a null as the text "null"; filter(Boolean) drops the missing Node row.
   box.replaceChildren(
     ...[el('li', {}, line, el('div', { class: 'row row-tight' }, python.configured ? null : runtimeAction(python.managed ? 'Repair' : 'Install now', 'installRuntime'), python.managed && !python.configured ? runtimeAction('Remove', 'removeRuntime') : null)),
@@ -1184,7 +1455,7 @@ function renderRuntimes() {
             : el('span', { class: 'muted' }, `Node.js ${node.build} is not installed. It downloads automatically the first time an app is built from source.`),
           el('div', { class: 'row row-tight' }, runtimeAction(node.managed ? 'Repair' : 'Install now', 'installRuntime', 'node'), node.managed ? runtimeAction('Remove', 'removeRuntime', 'node') : null),
         )
-      : null].filter(Boolean),
+      : null, webmirror].filter(Boolean),
   );
 }
 
@@ -1258,10 +1529,12 @@ $('settings-form').addEventListener('submit', async (event) => {
     checkUpdatesOnStart: form.checkUpdatesOnStart.checked,
     keepVersions: Math.max(0, Math.min(20, Math.round(Number(form.keepVersions.value) || 0))),
     resyncDays: Math.max(0, Math.min(365, Math.round(Number(form.resyncDays.value) || 0))),
+    theme: form.theme.value,
   };
   if (!patch.githubToken) delete patch.githubToken; // keep the saved one
   try {
     state.data = await call('updateSettings', patch);
+    applyTheme();
     renderSettings();
     setStatus('Settings saved', 'good');
     await refresh();
@@ -1408,6 +1681,29 @@ function renderManage() {
     ...group('From the catalog', projects.filter((p) => p.origin !== 'yours' && !p.removed)),
     ...group('Removed', projects.filter((p) => p.removed)),
   );
+}
+
+// Delete a source you added: it, its generators and their installs.
+async function removeMySource(p, after = () => {}) {
+  const installed = p.generators.filter((g) => g.installed).length;
+  const names = p.generators.length > 1 ? ` and its ${p.generators.length} generators` : '';
+  const note = installed ? ` Its installed copies (${installed}) are deleted too.` : '';
+  if (!window.confirm(`Remove ${p.name}${names} from your library?${note} This cannot be undone; you can add it again by its link.`)) return false;
+  try {
+    state.data = await call('removeProject', { key: p.key });
+  } catch (error) {
+    setStatus(error.message, 'error');
+    return false;
+  }
+  after();
+  if (state.detailId && !generatorById(state.detailId)) $('detail').close();
+  if (state.project === p.key) state.project = '';
+  setStatus(`Removed ${p.name}`, 'good');
+  renderFacets();
+  await runSearch();
+  if ($('settings').open) renderMySources();
+  if ($('manage').open) renderManage();
+  return true;
 }
 
 async function manageAction(name, payload) {
@@ -1574,6 +1870,7 @@ function renderUpdates() {
             el('span', { class: 'badge badge-kind' }, ORIGIN_LABELS[r.type] ?? r.type),
             el('span', { class: 'muted update-note' }, running ? 'Updating…' : r.note),
           ),
+          el('button', { class: 'btn btn-small update-open', type: 'button', title: `Open ${r.g.name}'s page`, onclick: () => openDetail(r.g.id) }, 'View'),
           failed ? el('div', { class: 'dist-error' }, failed.error) : null,
         );
       }),
@@ -1652,9 +1949,22 @@ $('show-chips').addEventListener('click', (event) => {
   renderFacets();
   runSearch();
 });
+$('sort').addEventListener('change', (e) => {
+  state.sort = e.target.value;
+  setPref('sort', state.sort);
+  runSearch();
+});
+$('views').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  state.view = b.dataset.view;
+  setPref('view', state.view);
+  renderGrid();
+});
 $('refresh').addEventListener('click', refresh);
 $('check-updates').addEventListener('click', openUpdates);
 $('open-settings').addEventListener('click', () => {
+  state.settingsTab = 'general';
   renderSettings();
   $('settings').showModal();
 });
@@ -1674,10 +1984,23 @@ api.on('jobs:changed', setJobs);
 $('open-jobs').addEventListener('click', () => openJobs());
 $('clear-jobs').addEventListener('click', async () => setJobs(await call('clearJobs')));
 api.on('catalog:changed', () => reloadState());
+api.on('windows:changed', (ids) => {
+  if (!state.data) return;
+  state.data.openWindows = ids;
+  if ($('detail').open) renderDetail();
+});
+
+// Light, dark or the system's: Settings > General > Theme.
+function applyTheme() {
+  const theme = state.data?.settings?.theme || 'system';
+  if (theme === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
 
 (async function boot() {
   try {
     state.data = await call('getState');
+    applyTheme();
     setJobs(state.data.jobs ?? []);
     renderFacets();
     await runSearch();
